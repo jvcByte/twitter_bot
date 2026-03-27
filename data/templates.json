@@ -1,0 +1,34 @@
+[
+  {
+    "type": "quote",
+    "content": "\"Any sufficiently advanced technology is indistinguishable from magic.\" - Arthur C. Clarke\n\n#TechQuotes #Programming"
+  },
+  {
+    "type": "tip",
+    "content": "💡 Pro tip: Always write code as if the person maintaining it is a violent psychopath who knows where you live.\n\n#CodingTips #DevHumor"
+  },
+  {
+    "type": "meme",
+    "content": "When your code works on the first try:\n\n\"Wait, that's illegal\" 🤔\n\n#DevLife #Programming"
+  },
+  {
+    "type": "fact",
+    "content": "🔥 Did you know? The first computer bug was an actual moth found in a Harvard Mark II computer in 1947.\n\n#TechFacts #ComputerHistory"
+  },
+  {
+    "type": "tip",
+    "content": "Remember: Code is read more often than it's written. Make it readable! 📖\n\n#CleanCode #BestPractices"
+  },
+  {
+    "type": "meme",
+    "content": "99 little bugs in the code\n99 little bugs\nTake one down, patch it around\n127 little bugs in the code 🐛\n\n#DevHumor #Debugging"
+  },
+  {
+    "type": "quote",
+    "content": "\"First, solve the problem. Then, write the code.\" - John Johnson\n\n#Programming #SoftwareEngineering"
+  },
+  {
+    "type": "tip",
+    "content": "🚀 Performance tip: Premature optimization is the root of all evil. Make it work, then make it fast.\n\n#DevTips #Performance"
+  }
+]
