@@ -44,7 +44,7 @@ func GenerateAIPost(apiKey string) (string, error) {
 	}
 
 	req, err := http.NewRequest("POST", 
-		"https://api-inference.huggingface.co/models/gpt2", 
+		"https://api-inference.huggingface.co/models/distilgpt2", 
 		bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)

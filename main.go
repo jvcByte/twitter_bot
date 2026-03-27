@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/yourusername/twitter-bot/config"
-	"github.com/yourusername/twitter-bot/content"
-	"github.com/yourusername/twitter-bot/twitter"
+	"github.com/jvcByte/twitter_bot/config"
+	"github.com/jvcByte/twitter_bot/content"
+	"github.com/jvcByte/twitter_bot/twitter"
 )
 
 func main() {
@@ -18,10 +18,10 @@ func main() {
 	}
 
 	twitterClient := twitter.NewClient(
-		cfg.TwitterAPIKey,
-		cfg.TwitterAPISecret,
-		cfg.TwitterAccessToken,
-		cfg.TwitterAccessSecret,
+		cfg.TwitterUsername,
+		cfg.TwitterPassword,
+		"",
+		"",
 	)
 
 	rand.Seed(time.Now().UnixNano())
