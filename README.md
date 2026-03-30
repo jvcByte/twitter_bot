@@ -1,4 +1,4 @@
-# Twitter Tech Bot 🤖
+# Twitter Bot
 
 An automated Twitter/X bot that posts tech content 5 times a day — completely free using GitHub Actions. No server required.
 
@@ -8,9 +8,9 @@ An automated Twitter/X bot that posts tech content 5 times a day — completely 
 
 Every few hours, the bot wakes up, picks one of three content types at random, and posts it to your Twitter/X account:
 
-- 📰 Latest headlines from TechCrunch, Hacker News, The Verge, Ars Technica, and Dev.to
-- 💡 Tech quotes, tips, facts, and dev humor from a built-in template library
-- 🤖 AI-generated tech insights powered by Hugging Face
+- Latest headlines from TechCrunch, Hacker News, The Verge, Ars Technica, and Dev.to
+- Tech quotes, tips, facts, and dev humor from a built-in template library
+- AI-generated tech insights powered by Hugging Face
 
 ---
 
