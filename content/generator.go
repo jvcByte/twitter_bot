@@ -8,13 +8,21 @@ import (
 	"net/http"
 )
 
-type HuggingFaceRequest struct {
-	Inputs     string                 `json:"inputs"`
-	Parameters map[string]interface{} `json:"parameters,omitempty"`
+type HFMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
-type HuggingFaceResponse []struct {
-	GeneratedText string `json:"generated_text"`
+type HuggingFaceRequest struct {
+	Model    string      `json:"model"`
+	Messages []HFMessage `json:"messages"`
+	MaxTokens int        `json:"max_tokens"`
+}
+
+type HuggingFaceResponse struct {
+	Choices []struct {
+		Message HFMessage `json:"message"`
+	} `json:"choices"`
 }
 
 func GenerateAIPost(apiKey string) (string, error) {
@@ -28,14 +36,11 @@ func GenerateAIPost(apiKey string) (string, error) {
 	prompt := prompts[len(prompts)%4]
 
 	reqBody := HuggingFaceRequest{
-		Inputs: prompt,
-		Parameters: map[string]interface{}{
-			"max_length":    100,
-			"temperature":   0.8,
-			"top_p":         0.9,
-			"do_sample":     true,
-			"return_full_text": false,
+		Model: "katanemo/Arch-Router-1.5B:hf-inference",
+		Messages: []HFMessage{
+			{Role: "user", Content: prompt},
 		},
+		MaxTokens: 100,
 	}
 
 	jsonData, err := json.Marshal(reqBody)
@@ -43,8 +48,8 @@ func GenerateAIPost(apiKey string) (string, error) {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", 
-		"https://api-inference.huggingface.co/models/distilgpt2", 
+	req, err := http.NewRequest("POST",
+		"https://router.huggingface.co/v1/chat/completions",
 		bytes.NewBuffer(jsonData))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -74,11 +79,11 @@ func GenerateAIPost(apiKey string) (string, error) {
 		return "", fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	if len(hfResp) == 0 {
+	if len(hfResp.Choices) == 0 {
 		return "", fmt.Errorf("no response from AI")
 	}
 
-	post := hfResp[0].GeneratedText + "\n\n#AI #Tech"
+	post := hfResp.Choices[0].Message.Content + "\n\n#AI #Tech"
 	
 	if len(post) > 280 {
 		post = post[:270] + "...\n\n#AI"
