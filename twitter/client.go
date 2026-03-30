@@ -66,7 +66,9 @@ func (c *Client) Tweet(message string) error {
 
 	fmt.Println("🔐 Loading session...")
 	page.MustNavigate("https://x.com/home")
-	time.Sleep(3 * time.Second)
+	// Wait for network to be idle and page fully loaded
+	page.MustWaitLoad()
+	time.Sleep(4 * time.Second)
 	page.MustScreenshot("debug_home.png")
 
 	// Verify we're logged in
@@ -78,8 +80,13 @@ func (c *Client) Tweet(message string) error {
 
 	fmt.Println("✅ Session valid, composing tweet...")
 
-	page.MustElement(`[data-testid="SideNav_NewTweet_Button"]`).MustClick()
-	time.Sleep(1 * time.Second)
+	newTweetBtn, err := page.Timeout(timeout).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+	if err != nil {
+		page.MustScreenshot("debug_compose.png")
+		return fmt.Errorf("new tweet button not found: %w", err)
+	}
+	newTweetBtn.MustClick()
+	time.Sleep(2 * time.Second)
 
 	tweetBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
 	if err != nil {
