@@ -85,10 +85,7 @@ func (c *Client) Tweet(message string) error {
 		page.MustScreenshot("debug_compose.png")
 		return fmt.Errorf("new tweet button not found: %w", err)
 	}
-	newTweetBtn.MustWaitInteractable()
-	if err := newTweetBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
-		return fmt.Errorf("failed to click new tweet button: %w", err)
-	}
+	newTweetBtn.MustEval(`() => this.click()`)
 	time.Sleep(2 * time.Second)
 
 	tweetBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
@@ -104,10 +101,7 @@ func (c *Client) Tweet(message string) error {
 		page.MustScreenshot("debug_compose.png")
 		return fmt.Errorf("tweet submit button not found: %w", err)
 	}
-	submitBtn.MustWaitInteractable()
-	if err := submitBtn.Click(proto.InputMouseButtonLeft, 1); err != nil {
-		return fmt.Errorf("failed to click submit button: %w", err)
-	}
+	submitBtn.MustEval(`() => this.click()`)
 	time.Sleep(2 * time.Second)
 
 	page.MustScreenshot("tweet_confirmation.png")
