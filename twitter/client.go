@@ -93,16 +93,22 @@ func (c *Client) Tweet(message string) error {
 		page.MustScreenshot("debug_compose.png")
 		return fmt.Errorf("tweet composer not found: %w", err)
 	}
-	tweetBox.MustInput(message)
-	time.Sleep(500 * time.Millisecond)
+	tweetBox.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+	// Use CDP InsertText which fires proper input events that React picks up
+	if err := page.InsertText(message); err != nil {
+		return fmt.Errorf("failed to type message: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+	page.MustScreenshot("debug_typed.png")
 
-	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButtonInline"]`)
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]`)
 	if err != nil {
 		page.MustScreenshot("debug_compose.png")
 		return fmt.Errorf("tweet submit button not found: %w", err)
 	}
 	submitBtn.MustEval(`() => this.click()`)
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	page.MustScreenshot("tweet_confirmation.png")
 	fmt.Println("\n✅ Tweet posted!")
