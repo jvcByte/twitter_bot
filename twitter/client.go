@@ -3,6 +3,7 @@ package twitter
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -41,7 +42,7 @@ func (c *Client) Tweet(message string) error {
 
 	fmt.Printf("\n✅ Tweet saved to %s\n", filename)
 	fmt.Printf("📋 Copy and post manually:\n\n%s\n", message)
-	fmt.Println("\n" + "="*60)
+	fmt.Println("\n" + strings.Repeat("=", 60))
 	
 	return nil
 }
