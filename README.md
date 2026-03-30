@@ -177,4 +177,4 @@ When the workflow fails, GitHub automatically uploads debug screenshots as artif
 
 ## License
 
-MIT
+[MIT](./LICENSE)
