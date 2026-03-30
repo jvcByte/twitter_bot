@@ -2,3 +2,6 @@
 *.log
 twitter-bot
 dist/
+cookies.json
+*.png
+tweets_*.txt
