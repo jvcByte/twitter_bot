@@ -53,35 +53,40 @@ The bot logs into Twitter using browser cookies from your real session to avoid 
 3. Click the Cookie-Editor icon → **Export** → **Export as JSON**
 4. Copy the JSON — it must be pasted as a single line with no surrounding quotes
 
-### Step 3 — Add secrets to GitHub
+### Step 3 — Add secrets and variables to GitHub
 
-Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+Go to your repo → **Settings** → **Secrets and variables** → **Actions**.
 
-**Main account** (used by `post.yml` — all 290 feeds):
+**Secrets** (sensitive — never visible after saving):
+
+Under the **Secrets** tab → **New repository secret**:
 
 | Secret | Value |
 |---|---|
-| `TWITTER_USERNAME` | Username (without @) |
-| `TWITTER_PASSWORD` | Password |
+| `TWITTER_USERNAME` | Main account username (without @) |
+| `TWITTER_PASSWORD` | Main account password |
 | `TWITTER_COOKIES` | Single-line cookie JSON from Step 2 |
-
-**Tech account** (used by `post_tech.yml` — 143 tech/cyber/science feeds):
-
-| Secret | Value |
-|---|---|
-| `TECH_TWITTER_USERNAME` | Username (without @) |
-| `TECH_TWITTER_PASSWORD` | Password |
-| `TECH_TWITTER_COOKIES` | Single-line cookie JSON from Step 2 |
-
-If you only want one account, only add the main account secrets and disable `post_tech.yml`.
-
-**Optional — for meme/mixed mode** (shared across both workflows):
-
-| Secret | Value |
-|---|---|
-| `GROQ_API_KEY` | Free at [console.groq.com](https://console.groq.com) |
-| `IMGFLIP_USERNAME` | Free at [imgflip.com](https://imgflip.com) |
+| `TECH_TWITTER_USERNAME` | Tech account username (without @) |
+| `TECH_TWITTER_PASSWORD` | Tech account password |
+| `TECH_TWITTER_COOKIES` | Single-line cookie JSON for tech account |
+| `GROQ_API_KEY` | Free at [console.groq.com](https://console.groq.com) — for meme/mixed mode |
+| `IMGFLIP_USERNAME` | Free at [imgflip.com](https://imgflip.com) — for meme images |
 | `IMGFLIP_PASSWORD` | Your Imgflip password |
+
+If you only want one account, skip the `TECH_TWITTER_*` secrets and disable `post_tech.yml`.
+
+**Variables** (non-sensitive config — visible in logs):
+
+Under the **Variables** tab → **New repository variable**:
+
+| Variable | Recommended value | Description |
+|---|---|---|
+| `POST_MODE` | `news` | `news`, `meme`, or `mixed` |
+| `FEEDS_FILE` | `data/rss_feeds.json` | Feed file path |
+| `CATEGORY` | _(leave empty)_ | Filter to one category or leave blank for all |
+| `MAX_ARTICLE_AGE_HOURS` | `7` | Look back window — set to cron interval + 1h |
+| `TWEET_DELAY_SECONDS` | `90` | Gap between tweets |
+| `MAX_TWEETS_PER_RUN` | `5` | Max tweets per run |
 
 ### Step 4 — Enable GitHub Actions
 
@@ -118,7 +123,7 @@ All settings are controlled via environment variables. Copy `.env.example` to `.
 | `MAX_ARTICLE_AGE_HOURS` | `7` | Ignore articles older than this |
 | `TWEET_DELAY_SECONDS` | `90` | Gap between consecutive tweets |
 | `MAX_TWEETS_PER_RUN` | `5` | Max tweets per run (0 = unlimited) |
-| `RUN_ONCE` | `false` | Exit after one poll — set `true` in CI |
+| `RUN_ONCE` | `false` | Poll once then exit. Set `true` in GitHub Actions — prevents the bot from looping forever inside a workflow run. Use `false` for local continuous mode or Docker. |
 | `GROQ_API_KEY` | — | Groq API key for AI post generation (free at [console.groq.com](https://console.groq.com)) |
 | `IMGFLIP_USERNAME` | — | Imgflip username for meme images (free at [imgflip.com](https://imgflip.com)) |
 | `IMGFLIP_PASSWORD` | — | Imgflip password |
@@ -217,13 +222,14 @@ Twitter updated their UI. Check debug screenshots in the failed Actions run → 
 
 ## How It Works
 
-1. GitHub Actions triggers on cron every 6 hours (`RUN_ONCE=true`)
+1. GitHub Actions triggers on cron every 6 hours with `RUN_ONCE=true` — the bot polls once and exits cleanly in ~2-3 minutes instead of running forever
 2. The bot loads feeds from the configured `FEEDS_FILE`
 3. All feeds are fetched concurrently (15 at a time) with a 15s timeout each
 4. Articles newer than `MAX_ARTICLE_AGE_HOURS` that haven't been seen are collected
 5. Results are sorted newest-first, capped at `MAX_TWEETS_PER_RUN`, and tweeted with a `TWEET_DELAY_SECONDS` gap
-6. A headless Chrome browser injects session cookies, navigates to x.com, and posts each tweet
-7. Screenshots are saved automatically on failure
+6. News posts attach the article's thumbnail image when available; meme posts attach an Imgflip-generated image
+7. A headless Chrome browser injects session cookies, navigates to x.com, and posts each tweet
+8. Screenshots are saved automatically on failure
 
 ---
 
