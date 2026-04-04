@@ -420,6 +420,296 @@
     "url": "https://www.flightglobal.com/rss"
   },
   {
+    "name": "Krebs on Security",
+    "category": "cybersecurity",
+    "url": "https://krebsonsecurity.com/feed/"
+  },
+  {
+    "name": "The Hacker News",
+    "category": "cybersecurity",
+    "url": "https://feeds.feedburner.com/TheHackersNews"
+  },
+  {
+    "name": "Dark Reading",
+    "category": "cybersecurity",
+    "url": "https://www.darkreading.com/rss.xml"
+  },
+  {
+    "name": "BleepingComputer",
+    "category": "cybersecurity",
+    "url": "https://www.bleepingcomputer.com/feed/"
+  },
+  {
+    "name": "CyberScoop",
+    "category": "cybersecurity",
+    "url": "https://cyberscoop.com/feed/"
+  },
+  {
+    "name": "SecurityWeek",
+    "category": "cybersecurity",
+    "url": "https://feeds.feedburner.com/Securityweek"
+  },
+  {
+    "name": "Help Net Security",
+    "category": "cybersecurity",
+    "url": "https://www.helpnetsecurity.com/feed/"
+  },
+  {
+    "name": "Infosecurity Magazine",
+    "category": "cybersecurity",
+    "url": "https://www.infosecurity-magazine.com/rss/news/"
+  },
+  {
+    "name": "The Record",
+    "category": "cybersecurity",
+    "url": "https://therecord.media/feed"
+  },
+  {
+    "name": "Schneier on Security",
+    "category": "cybersecurity",
+    "url": "https://www.schneier.com/feed/atom/"
+  },
+  {
+    "name": "CISA",
+    "category": "cybersecurity",
+    "url": "https://www.cisa.gov/news.xml"
+  },
+  {
+    "name": "Threatpost",
+    "category": "cybersecurity",
+    "url": "https://threatpost.com/feed/"
+  },
+  {
+    "name": "SC Magazine",
+    "category": "cybersecurity",
+    "url": "https://www.scmagazine.com/feed"
+  },
+  {
+    "name": "Security Boulevard",
+    "category": "cybersecurity",
+    "url": "https://securityboulevard.com/feed/"
+  },
+  {
+    "name": "Malwarebytes Labs",
+    "category": "cybersecurity",
+    "url": "https://www.malwarebytes.com/blog/feed/"
+  },
+  {
+    "name": "ESET WeLiveSecurity",
+    "category": "cybersecurity",
+    "url": "https://www.welivesecurity.com/feed/"
+  },
+  {
+    "name": "CrowdStrike Blog",
+    "category": "cybersecurity",
+    "url": "https://www.crowdstrike.com/blog/feed/"
+  },
+  {
+    "name": "Palo Alto Unit 42",
+    "category": "cybersecurity",
+    "url": "https://unit42.paloaltonetworks.com/feed/"
+  },
+  {
+    "name": "Cisco Talos",
+    "category": "cybersecurity",
+    "url": "https://blog.talosintelligence.com/feeds/posts/default"
+  },
+  {
+    "name": "Microsoft Security Blog",
+    "category": "cybersecurity",
+    "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+  },
+  {
+    "name": "Google Security Blog",
+    "category": "cybersecurity",
+    "url": "https://security.googleblog.com/feeds/posts/default"
+  },
+  {
+    "name": "Check Point Research",
+    "category": "cybersecurity",
+    "url": "https://research.checkpoint.com/feed/"
+  },
+  {
+    "name": "Mandiant Blog",
+    "category": "cybersecurity",
+    "url": "https://www.mandiant.com/resources/blog/rss.xml"
+  },
+  {
+    "name": "Recorded Future Blog",
+    "category": "cybersecurity",
+    "url": "https://www.recordedfuture.com/blog/rss.xml"
+  },
+  {
+    "name": "HackRead",
+    "category": "cybersecurity",
+    "url": "https://www.hackread.com/feed/"
+  },
+  {
+    "name": "Security Affairs",
+    "category": "cybersecurity",
+    "url": "https://securityaffairs.com/feed"
+  },
+  {
+    "name": "Naked Security Sophos",
+    "category": "cybersecurity",
+    "url": "https://nakedsecurity.sophos.com/feed/"
+  },
+  {
+    "name": "EFF Updates",
+    "category": "cybersecurity",
+    "url": "https://www.eff.org/rss/updates.xml"
+  },
+  {
+    "name": "Citizen Lab",
+    "category": "cybersecurity",
+    "url": "https://citizenlab.ca/feed/"
+  },
+  {
+    "name": "Privacy International",
+    "category": "cybersecurity",
+    "url": "https://privacyinternational.org/feed"
+  },
+  {
+    "name": "TorrentFreak",
+    "category": "cybersecurity",
+    "url": "https://torrentfreak.com/feed/"
+  },
+  {
+    "name": "ENISA News",
+    "category": "cybersecurity",
+    "url": "https://www.enisa.europa.eu/news/enisa-news/RSS"
+  },
+  {
+    "name": "Nature News",
+    "category": "science",
+    "url": "https://www.nature.com/nature.rss"
+  },
+  {
+    "name": "Science Magazine",
+    "category": "science",
+    "url": "https://www.science.org/rss/news_current.xml"
+  },
+  {
+    "name": "Science Daily",
+    "category": "science",
+    "url": "https://www.sciencedaily.com/rss/all.xml"
+  },
+  {
+    "name": "Phys.org",
+    "category": "science",
+    "url": "https://phys.org/rss-feed/"
+  },
+  {
+    "name": "New Scientist",
+    "category": "science",
+    "url": "https://www.newscientist.com/feed/home/"
+  },
+  {
+    "name": "Scientific American",
+    "category": "science",
+    "url": "https://rss.sciam.com/ScientificAmerican-Global"
+  },
+  {
+    "name": "MIT News",
+    "category": "science",
+    "url": "https://news.mit.edu/rss/feed"
+  },
+  {
+    "name": "Quanta Magazine",
+    "category": "science",
+    "url": "https://api.quantamagazine.org/feed/"
+  },
+  {
+    "name": "Popular Science",
+    "category": "science",
+    "url": "https://www.popsci.com/feed/"
+  },
+  {
+    "name": "Live Science",
+    "category": "science",
+    "url": "https://www.livescience.com/feeds/all"
+  },
+  {
+    "name": "Cosmos Magazine",
+    "category": "science",
+    "url": "https://cosmosmagazine.com/feed/"
+  },
+  {
+    "name": "Futurism",
+    "category": "science",
+    "url": "https://futurism.com/feed"
+  },
+  {
+    "name": "Singularity Hub",
+    "category": "science",
+    "url": "https://singularityhub.com/feed/"
+  },
+  {
+    "name": "Big Think",
+    "category": "science",
+    "url": "https://bigthink.com/feed/"
+  },
+  {
+    "name": "Inverse",
+    "category": "science",
+    "url": "https://www.inverse.com/rss"
+  },
+  {
+    "name": "Smithsonian Magazine",
+    "category": "science",
+    "url": "https://www.smithsonianmag.com/rss/latest_articles/"
+  },
+  {
+    "name": "The Conversation",
+    "category": "science",
+    "url": "https://theconversation.com/us/technology/articles.atom"
+  },
+  {
+    "name": "Eos AGU",
+    "category": "science",
+    "url": "https://eos.org/feed"
+  },
+  {
+    "name": "ACM TechNews",
+    "category": "science",
+    "url": "https://technews.acm.org/feed.cfm"
+  },
+  {
+    "name": "arXiv CS",
+    "category": "science",
+    "url": "https://arxiv.org/rss/cs"
+  },
+  {
+    "name": "arXiv AI",
+    "category": "science",
+    "url": "https://arxiv.org/rss/cs.AI"
+  },
+  {
+    "name": "MIT CSAIL",
+    "category": "science",
+    "url": "https://www.csail.mit.edu/news/feed"
+  },
+  {
+    "name": "Stanford HAI",
+    "category": "science",
+    "url": "https://hai.stanford.edu/news/feed"
+  },
+  {
+    "name": "AI Now Institute",
+    "category": "science",
+    "url": "https://ainowinstitute.org/feed"
+  },
+  {
+    "name": "Future of Life Institute",
+    "category": "science",
+    "url": "https://futureoflife.org/feed/"
+  },
+  {
+    "name": "Vox Future Perfect",
+    "category": "science",
+    "url": "https://www.vox.com/future-perfect/rss/index.xml"
+  },
+  {
     "name": "South China Morning Post Tech",
     "category": "tech",
     "url": "https://www.scmp.com/rss/36/feed"
