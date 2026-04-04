@@ -26,7 +26,7 @@ func main() {
 	client := twitter.NewClient(cfg.TwitterUsername, cfg.TwitterPassword, "", "")
 	seen := content.NewSeenStore(seenStorePath)
 
-	feeds, err := content.LoadFeeds()
+	feeds, err := content.LoadFeeds(cfg.FeedsFile)
 	if err != nil {
 		log.Fatalf("failed to load feeds: %v", err)
 	}
@@ -59,7 +59,7 @@ func main() {
 func runPoll(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {
 	fmt.Printf("[%s] fetching...\n", time.Now().Format("15:04:05"))
 
-	articles, err := content.Poll(seen, cfg.MaxArticleAge, cfg.Category)
+	articles, err := content.Poll(seen, cfg.MaxArticleAge, cfg.FeedsFile, cfg.Category)
 	if err != nil {
 		log.Printf("poll error: %v", err)
 		return

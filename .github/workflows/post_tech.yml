@@ -1,0 +1,51 @@
+name: Post Tech Tweet
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours (4x/day)
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb
+          sudo apt-get install -f -y
+          google-chrome --version
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run bot
+        env:
+          TWITTER_USERNAME: ${{ secrets.TECH_TWITTER_USERNAME }}
+          TWITTER_PASSWORD: ${{ secrets.TECH_TWITTER_PASSWORD }}
+          TWITTER_COOKIES: ${{ secrets.TECH_TWITTER_COOKIES }}
+          FEEDS_FILE: data/tech_feeds.json
+          MAX_ARTICLE_AGE_HOURS: 7
+          TWEET_DELAY_SECONDS: 90
+          MAX_TWEETS_PER_RUN: 5
+          RUN_ONCE: true
+        run: go run main.go
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-tech-${{ github.run_id }}
+          path: "*.png"
+          if-no-files-found: ignore

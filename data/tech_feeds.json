@@ -1,0 +1,427 @@
+[
+  {
+    "name": "Reuters Technology",
+    "category": "tech",
+    "url": "https://feeds.reuters.com/reuters/technologyNews"
+  },
+  {
+    "name": "BBC Technology",
+    "category": "tech",
+    "url": "https://feeds.bbci.co.uk/news/technology/rss.xml"
+  },
+  {
+    "name": "The Guardian Tech",
+    "category": "tech",
+    "url": "https://www.theguardian.com/technology/rss"
+  },
+  {
+    "name": "New York Times Tech",
+    "category": "tech",
+    "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"
+  },
+  {
+    "name": "TechCrunch",
+    "category": "tech",
+    "url": "https://techcrunch.com/feed/"
+  },
+  {
+    "name": "The Verge",
+    "category": "tech",
+    "url": "https://www.theverge.com/rss/index.xml"
+  },
+  {
+    "name": "Wired",
+    "category": "tech",
+    "url": "https://www.wired.com/feed/rss"
+  },
+  {
+    "name": "Ars Technica",
+    "category": "tech",
+    "url": "https://feeds.arstechnica.com/arstechnica/index"
+  },
+  {
+    "name": "VentureBeat",
+    "category": "tech",
+    "url": "https://venturebeat.com/feed/"
+  },
+  {
+    "name": "Engadget",
+    "category": "tech",
+    "url": "https://www.engadget.com/rss.xml"
+  },
+  {
+    "name": "Gizmodo",
+    "category": "tech",
+    "url": "https://gizmodo.com/rss"
+  },
+  {
+    "name": "ZDNet",
+    "category": "tech",
+    "url": "https://www.zdnet.com/news/rss.xml"
+  },
+  {
+    "name": "The Register",
+    "category": "tech",
+    "url": "https://www.theregister.com/headlines.atom"
+  },
+  {
+    "name": "Hacker News",
+    "category": "tech",
+    "url": "https://hnrss.org/frontpage"
+  },
+  {
+    "name": "MIT Technology Review",
+    "category": "tech",
+    "url": "https://www.technologyreview.com/feed/"
+  },
+  {
+    "name": "IEEE Spectrum",
+    "category": "tech",
+    "url": "https://spectrum.ieee.org/feeds/feed.rss"
+  },
+  {
+    "name": "InfoQ",
+    "category": "tech",
+    "url": "https://feed.infoq.com/"
+  },
+  {
+    "name": "SiliconANGLE",
+    "category": "tech",
+    "url": "https://siliconangle.com/feed/"
+  },
+  {
+    "name": "GeekWire",
+    "category": "tech",
+    "url": "https://www.geekwire.com/feed/"
+  },
+  {
+    "name": "TechRepublic",
+    "category": "tech",
+    "url": "https://www.techrepublic.com/rssfeeds/articles/"
+  },
+  {
+    "name": "9to5Mac",
+    "category": "tech",
+    "url": "https://9to5mac.com/feed/"
+  },
+  {
+    "name": "9to5Google",
+    "category": "tech",
+    "url": "https://9to5google.com/feed/"
+  },
+  {
+    "name": "MacRumors",
+    "category": "tech",
+    "url": "https://feeds.macrumors.com/MacRumors-All"
+  },
+  {
+    "name": "Android Authority",
+    "category": "tech",
+    "url": "https://www.androidauthority.com/feed/"
+  },
+  {
+    "name": "XDA Developers",
+    "category": "tech",
+    "url": "https://www.xda-developers.com/feed/"
+  },
+  {
+    "name": "Tom's Hardware",
+    "category": "tech",
+    "url": "https://www.tomshardware.com/feeds/all"
+  },
+  {
+    "name": "Digital Trends",
+    "category": "tech",
+    "url": "https://www.digitaltrends.com/feed/"
+  },
+  {
+    "name": "TechRadar",
+    "category": "tech",
+    "url": "https://www.techradar.com/rss"
+  },
+  {
+    "name": "CNET",
+    "category": "tech",
+    "url": "https://www.cnet.com/rss/news/"
+  },
+  {
+    "name": "OpenAI Blog",
+    "category": "tech",
+    "url": "https://openai.com/blog/rss.xml"
+  },
+  {
+    "name": "Google Blog",
+    "category": "tech",
+    "url": "https://blog.google/rss/"
+  },
+  {
+    "name": "Microsoft Blog",
+    "category": "tech",
+    "url": "https://blogs.microsoft.com/feed/"
+  },
+  {
+    "name": "GitHub Blog",
+    "category": "tech",
+    "url": "https://github.blog/feed/"
+  },
+  {
+    "name": "Nvidia Blog",
+    "category": "tech",
+    "url": "https://blogs.nvidia.com/feed/"
+  },
+  {
+    "name": "Anthropic News",
+    "category": "tech",
+    "url": "https://www.anthropic.com/news/rss"
+  },
+  {
+    "name": "DeepMind Blog",
+    "category": "tech",
+    "url": "https://deepmind.google/blog/rss.xml"
+  },
+  {
+    "name": "Meta AI Blog",
+    "category": "tech",
+    "url": "https://ai.meta.com/blog/rss/"
+  },
+  {
+    "name": "Mashable",
+    "category": "tech",
+    "url": "https://mashable.com/feeds/rss/all"
+  },
+  {
+    "name": "PCMag",
+    "category": "tech",
+    "url": "https://www.pcmag.com/feeds/all"
+  },
+  {
+    "name": "Tom's Guide",
+    "category": "tech",
+    "url": "https://www.tomsguide.com/feeds/all"
+  },
+  {
+    "name": "ExtremeTech",
+    "category": "tech",
+    "url": "https://www.extremetech.com/feed"
+  },
+  {
+    "name": "BetaNews",
+    "category": "tech",
+    "url": "https://betanews.com/feed/"
+  },
+  {
+    "name": "TechSpot",
+    "category": "tech",
+    "url": "https://www.techspot.com/backend.xml"
+  },
+  {
+    "name": "MakeUseOf",
+    "category": "tech",
+    "url": "https://www.makeuseof.com/feed/"
+  },
+  {
+    "name": "Lifehacker",
+    "category": "tech",
+    "url": "https://lifehacker.com/rss"
+  },
+  {
+    "name": "Android Central",
+    "category": "tech",
+    "url": "https://www.androidcentral.com/feed"
+  },
+  {
+    "name": "Android Headlines",
+    "category": "tech",
+    "url": "https://www.androidheadlines.com/feed"
+  },
+  {
+    "name": "Windows Central",
+    "category": "tech",
+    "url": "https://www.windowscentral.com/feed"
+  },
+  {
+    "name": "iMore",
+    "category": "tech",
+    "url": "https://www.imore.com/feed"
+  },
+  {
+    "name": "Macworld",
+    "category": "tech",
+    "url": "https://www.macworld.com/feed"
+  },
+  {
+    "name": "Cult of Mac",
+    "category": "tech",
+    "url": "https://www.cultofmac.com/feed/"
+  },
+  {
+    "name": "AppleInsider",
+    "category": "tech",
+    "url": "https://appleinsider.com/rss/news/"
+  },
+  {
+    "name": "GSMArena",
+    "category": "tech",
+    "url": "https://www.gsmarena.com/rss-news-reviews.php3"
+  },
+  {
+    "name": "Notebookcheck",
+    "category": "tech",
+    "url": "https://www.notebookcheck.net/News.8.0.html?feed=rss"
+  },
+  {
+    "name": "The Next Web",
+    "category": "tech",
+    "url": "https://thenextweb.com/feed/"
+  },
+  {
+    "name": "Protocol",
+    "category": "tech",
+    "url": "https://www.protocol.com/feeds/feed.rss"
+  },
+  {
+    "name": "The Information",
+    "category": "tech",
+    "url": "https://www.theinformation.com/feed"
+  },
+  {
+    "name": "Semafor Tech",
+    "category": "tech",
+    "url": "https://www.semafor.com/feed"
+  },
+  {
+    "name": "Tech in Asia",
+    "category": "tech",
+    "url": "https://www.techinasia.com/feed"
+  },
+  {
+    "name": "KrASIA",
+    "category": "tech",
+    "url": "https://kr-asia.com/feed"
+  },
+  {
+    "name": "YourStory",
+    "category": "tech",
+    "url": "https://yourstory.com/feed"
+  },
+  {
+    "name": "Rest of World",
+    "category": "tech",
+    "url": "https://restofworld.org/feed/"
+  },
+  {
+    "name": "Semiconductor Engineering",
+    "category": "tech",
+    "url": "https://semiengineering.com/feed/"
+  },
+  {
+    "name": "EE Times",
+    "category": "tech",
+    "url": "https://www.eetimes.com/feed/"
+  },
+  {
+    "name": "The Next Platform",
+    "category": "tech",
+    "url": "https://www.nextplatform.com/feed/"
+  },
+  {
+    "name": "DataCenter Knowledge",
+    "category": "tech",
+    "url": "https://www.datacenterknowledge.com/rss.xml"
+  },
+  {
+    "name": "SDxCentral",
+    "category": "tech",
+    "url": "https://www.sdxcentral.com/feed/"
+  },
+  {
+    "name": "Light Reading",
+    "category": "tech",
+    "url": "https://www.lightreading.com/rss_simple.asp"
+  },
+  {
+    "name": "Fierce Wireless",
+    "category": "tech",
+    "url": "https://www.fiercewireless.com/rss/xml"
+  },
+  {
+    "name": "Computerworld",
+    "category": "tech",
+    "url": "https://www.computerworld.com/index.rss"
+  },
+  {
+    "name": "InfoWorld",
+    "category": "tech",
+    "url": "https://www.infoworld.com/index.rss"
+  },
+  {
+    "name": "CRN",
+    "category": "tech",
+    "url": "https://www.crn.com/news/rss"
+  },
+  {
+    "name": "eWeek",
+    "category": "tech",
+    "url": "https://www.eweek.com/feed/"
+  },
+  {
+    "name": "DevOps.com",
+    "category": "tech",
+    "url": "https://devops.com/feed/"
+  },
+  {
+    "name": "Stack Overflow Blog",
+    "category": "tech",
+    "url": "https://stackoverflow.blog/feed/"
+  },
+  {
+    "name": "Slashdot",
+    "category": "tech",
+    "url": "https://rss.slashdot.org/Slashdot/slashdotMain"
+  },
+  {
+    "name": "The Robot Report",
+    "category": "tech",
+    "url": "https://www.therobotreport.com/feed/"
+  },
+  {
+    "name": "Fierce Electronics",
+    "category": "tech",
+    "url": "https://www.fierceelectronics.com/rss/xml"
+  },
+  {
+    "name": "Robotics Business Review",
+    "category": "tech",
+    "url": "https://www.roboticsbusinessreview.com/feed/"
+  },
+  {
+    "name": "Decrypt",
+    "category": "tech",
+    "url": "https://decrypt.co/feed"
+  },
+  {
+    "name": "CoinDesk",
+    "category": "tech",
+    "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"
+  },
+  {
+    "name": "The Block",
+    "category": "tech",
+    "url": "https://www.theblock.co/rss.xml"
+  },
+  {
+    "name": "Aviation Week",
+    "category": "tech",
+    "url": "https://aviationweek.com/rss.xml"
+  },
+  {
+    "name": "FlightGlobal",
+    "category": "tech",
+    "url": "https://www.flightglobal.com/rss"
+  },
+  {
+    "name": "South China Morning Post Tech",
+    "category": "tech",
+    "url": "https://www.scmp.com/rss/36/feed"
+  }
+]
