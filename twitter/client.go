@@ -43,6 +43,8 @@ func (c *Client) Tweet(message string) error {
 
 	l := launcher.New().
 		Headless(true).
+		Set("no-sandbox").
+		Set("disable-setuid-sandbox").
 		Set("disable-dev-shm-usage").
 		Set("disable-gpu").
 		Set("disable-blink-features", "AutomationControlled").
@@ -51,15 +53,15 @@ func (c *Client) Tweet(message string) error {
 		Set("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36").
 		Set("window-size", "1280,800")
 
-	// Resolve browser: snap chromium → rod cache → system PATH
+	// Resolve browser: snap chromium → system PATH → rod cache
 	if path := snapChromium(); path != "" {
 		l = l.Bin(path)
 	} else if path, exists := launcher.LookPath(); exists {
 		l = l.Bin(path)
 	} else if path := rodCachedBrowser(); path != "" {
-		l = l.Bin(path).Set("no-sandbox").Set("disable-setuid-sandbox")
+		l = l.Bin(path)
 	} else {
-		return fmt.Errorf("no Chromium/Chrome binary found — install chromium or google-chrome")
+		return fmt.Errorf("no Chromium/Chrome binary found — install google-chrome-stable")
 	}
 
 	u, err := l.Launch()
