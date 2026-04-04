@@ -2,13 +2,8 @@ name: Post Tweet
 
 on:
   schedule:
-    # 5 times per day: 8am, 12pm, 4pm, 8pm, 11pm UTC
-    - cron: '0 8 * * *'
-    - cron: '0 12 * * *'
-    - cron: '0 16 * * *'
-    - cron: '0 20 * * *'
-    - cron: '0 23 * * *'
-  workflow_dispatch: # Allow manual trigger
+    - cron: '0 */2 * * *'  # every 2 hours
+  workflow_dispatch:        # manual trigger
 
 jobs:
   post:
@@ -42,7 +37,10 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
-          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          MAX_ARTICLE_AGE_HOURS: 3   # look back 3h to cover the 2h gap between runs
+          TWEET_DELAY_SECONDS: 90
+          MAX_TWEETS_PER_RUN: 5
+          RUN_ONCE: true
         run: go run main.go
 
       - name: Upload screenshots on failure

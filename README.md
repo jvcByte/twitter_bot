@@ -1,177 +1,177 @@
-# Twitter Bot
+# Twitter News Bot
 
-An automated Twitter/X bot that posts tech content 5 times a day — completely free using GitHub Actions. No server required.
+An automated Twitter/X bot that monitors **290 RSS feeds** across 9 news categories and tweets breaking news as it happens — completely free using GitHub Actions. No server required.
 
 ---
 
 ## What It Does
 
-Every few hours, the bot wakes up, picks one of three content types at random, and posts it to your Twitter/X account:
+Every 2 hours, the bot polls all 290 feeds concurrently, finds articles published in the last 3 hours that haven't been tweeted yet, and posts them one by one. It never tweets the same article twice.
 
-- Latest headlines from TechCrunch, Hacker News, The Verge, Ars Technica, and Dev.to
-- Tech quotes, tips, facts, and dev humor from a built-in template library
-- AI-generated tech insights powered by Hugging Face
+**Coverage across 9 categories:**
+
+| Category | Sources |
+|---|---|
+| World | Reuters, BBC, AP, Al Jazeera, Guardian, NYT, Washington Post, CNN, and 50+ more |
+| Tech | TechCrunch, The Verge, Wired, Ars Technica, VentureBeat, OpenAI, GitHub, Nvidia, and 75+ more |
+| Cybersecurity | Krebs on Security, BleepingComputer, CISA, CrowdStrike, Google Security, and 25+ more |
+| Business | Bloomberg, Financial Times, WSJ, Forbes, CNBC, The Economist, and 30+ more |
+| Science | Nature, Quanta, MIT News, Scientific American, arXiv, and 20+ more |
+| Environment | Carbon Brief, CleanTechnica, Inside Climate News, Electrek, and 20+ more |
+| Health | STAT News, The Lancet, BMJ, Fierce Healthcare, and 10+ more |
+| Space | Space.com, NASA, ESA, SpaceflightNow, The Planetary Society, and more |
+| Africa | TechCabal, AllAfrica, The Africa Report, Nairametrics, and more |
 
 ---
 
 ## Prerequisites
 
-You need accounts on three platforms before starting:
-
 - [GitHub](https://github.com) — runs the bot for free
-- [Twitter/X](https://x.com) — the account the bot will post to
-- [Hugging Face](https://huggingface.co) — provides the AI text generation
+- [Twitter/X](https://x.com) — the account the bot posts to
 
 ---
 
 ## Setup Guide
 
-### Step 1 — Fork or clone this repository
+### Step 1 — Fork this repository
 
-Click the **Fork** button on GitHub to copy this repo to your account. That's the version you'll configure and run.
+Click **Fork** on GitHub to copy this repo to your account.
 
-### Step 2 — Get a Hugging Face API token
+### Step 2 — Export your Twitter cookies
 
-1. Sign up or log in at [huggingface.co](https://huggingface.co)
-2. Click your profile picture → **Settings** → **Access Tokens**
-3. Click **New token**
-4. Give it any name, select **Read** role, and make sure **"Make calls to the serverless Inference API"** is checked
-5. Copy the token — it starts with `hf_`
-
-### Step 3 — Export your Twitter cookies
-
-The bot logs into Twitter using browser cookies from your real session. This avoids bot detection.
+The bot logs into Twitter using browser cookies from your real session to avoid bot detection.
 
 1. Log into [x.com](https://x.com) in Chrome or Firefox
 2. Install the [Cookie-Editor](https://cookie-editor.com) browser extension
-3. Click the Cookie-Editor icon in your toolbar
-4. Click **Export** → **Export as JSON**
-5. This copies the cookies to your clipboard — keep it ready for Step 4
+3. Click the Cookie-Editor icon → **Export** → **Export as JSON**
+4. This copies the cookie JSON to your clipboard
 
-### Step 4 — Add secrets to GitHub
+### Step 3 — Add secrets to GitHub
 
-In your forked repository on GitHub:
+Go to your forked repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
 
-1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. Click **New repository secret** and add each of the following:
-
-| Secret name | Value |
+| Secret | Value |
 |---|---|
 | `TWITTER_USERNAME` | Your Twitter/X username (without @) |
 | `TWITTER_PASSWORD` | Your Twitter/X password |
-| `TWITTER_COOKIES` | The full JSON you copied in Step 3 |
-| `HUGGINGFACE_API_KEY` | Your Hugging Face token from Step 2 |
+| `TWITTER_COOKIES` | The full JSON from Step 2 |
 
-### Step 5 — Enable GitHub Actions
+### Step 4 — Enable GitHub Actions
 
 1. Go to the **Actions** tab in your repository
 2. If prompted, click **"I understand my workflows, go ahead and enable them"**
-3. The bot will now run automatically 5 times per day
+3. The bot will now run automatically every 2 hours
 
-To test it immediately, go to **Actions** → **Post Tweet** → **Run workflow** → **Run workflow**.
+To test immediately: **Actions** → **Post Tweet** → **Run workflow**.
 
 ---
 
 ## Posting Schedule
 
-The bot runs at these times (UTC) every day:
+Runs every 2 hours via cron (`0 */2 * * *`). Each run looks back 3 hours to ensure no articles are missed between runs.
 
-| Run | UTC time |
-|---|---|
-| Morning | 8:00 AM |
-| Midday | 12:00 PM |
-| Afternoon | 4:00 PM |
-| Evening | 8:00 PM |
-| Night | 11:00 PM |
-
-To change the schedule, edit the cron expressions in `.github/workflows/post.yml`.
+To change the schedule, edit the cron expression in `.github/workflows/post.yml`.
 
 ---
 
-## Customization
+## Configuration
 
-### Add your own templates
+All settings are controlled via environment variables. Copy `.env.example` to `.env` for local use, or set them as GitHub Actions secrets/variables.
 
-Open `data/templates.json` and add entries following this format:
+| Variable | Default | Description |
+|---|---|---|
+| `TWITTER_USERNAME` | — | Your Twitter/X username |
+| `TWITTER_PASSWORD` | — | Your Twitter/X password |
+| `TWITTER_COOKIES` | — | Session cookies JSON (single-line JSON array) |
+| `CATEGORY` | _(all)_ | Filter to one category (see below) |
+| `POLL_INTERVAL_MINUTES` | `5` | Feed poll interval (continuous mode only) |
+| `MAX_ARTICLE_AGE_HOURS` | `2` | Ignore articles older than this |
+| `TWEET_DELAY_SECONDS` | `90` | Gap between consecutive tweets |
+| `MAX_TWEETS_PER_RUN` | `5` | Max tweets per run (0 = unlimited) |
+| `RUN_ONCE` | `false` | Exit after one poll — set to `true` in CI |
 
-```json
-{
-  "type": "tip",
-  "content": "Your tweet text here\n\n#YourHashtag"
-}
+### Filtering by category
+
+Set `CATEGORY` to focus on a single topic:
+
+```
+CATEGORY=cybersecurity
 ```
 
-Types can be anything: `quote`, `tip`, `fact`, `meme`.
+Valid values: `world`, `tech`, `cybersecurity`, `business`, `environment`, `science`, `space`, `health`, `africa`
 
-### Add or remove RSS feeds
+---
 
-Open `data/rss_feeds.json` and add entries:
+## Customizing Feeds
+
+Open `data/rss_feeds.json`. Each entry has three fields:
 
 ```json
 {
   "name": "Feed Name",
+  "category": "tech",
   "url": "https://example.com/feed.rss"
 }
 ```
 
-Any RSS or Atom feed URL works.
+Any RSS or Atom feed URL works. Categories must match one of the 9 values listed above.
 
 ---
 
 ## Running Locally
 
-If you want to run the bot on your own machine:
+Requires [Go 1.21+](https://go.dev/dl/) and **Google Chrome** or Chromium installed.
 
-1. Install [Go 1.21+](https://go.dev/dl/)
-2. Clone the repository
-3. Copy the example env file and fill in your credentials:
+On Ubuntu/Debian:
+```bash
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo dpkg -i google-chrome-stable_current_amd64.deb && sudo apt-get install -f -y
+```
+
+### Continuous mode (polls forever)
 
 ```bash
 cp .env.example .env
+# fill in credentials and TWITTER_COOKIES
+go run .
 ```
 
-Edit `.env`:
-
-```
-TWITTER_USERNAME=your_username
-TWITTER_PASSWORD=your_password
-HUGGINGFACE_API_KEY=hf_your_token
-```
-
-4. Export your Twitter cookies to `cookies.json` in the project root (same process as Step 3 above)
-
-5. Run the bot:
+### Single run then exit (same as GitHub Actions)
 
 ```bash
-go run .
+RUN_ONCE=true go run .
 ```
 
 ---
 
 ## Troubleshooting
 
-**The workflow fails with "session invalid or expired"**
-Your Twitter cookies have expired. Repeat Step 3 and update the `TWITTER_COOKIES` secret. Cookies typically last 30–90 days.
+**"session invalid or expired"**
+Your Twitter cookies have expired. Repeat Step 2 and update the `TWITTER_COOKIES` secret. Cookies typically last 30–90 days.
 
-**The workflow fails with "tweet composer not found"**
-Twitter may have updated their page structure. Open an issue with the error and any screenshots from the artifacts.
+**Bot hangs at "Launching browser..."**
+No working Chrome/Chromium binary was found or the installed version doesn't support headless mode. Install Google Chrome stable (see Running Locally above). On Ubuntu 24.04, snap Chromium does not work for headless automation.
 
-**The AI post fails**
-Your Hugging Face token may have expired or lost its Inference API permission. Generate a new token and update the `HUGGINGFACE_API_KEY` secret.
+**"no Chromium/Chrome binary found"**
+Install Google Chrome stable as shown above.
 
-**I want to see what the browser sees**
-When the workflow fails, GitHub automatically uploads debug screenshots as artifacts. Go to the failed Actions run → **Summary** → **Artifacts** → download `debug-screenshots`.
+**"tweet composer not found"**
+Twitter may have updated their page structure. Check the debug screenshots in the failed Actions run → **Summary** → **Artifacts** → `debug-screenshots`.
+
+**Bot tweets the same articles every run**
+The `data/seen_articles.json` deduplication file doesn't persist between GitHub Actions runs by default. The bot relies on `MAX_ARTICLE_AGE_HOURS` to avoid re-tweeting — set it to match your cron interval (e.g. `2` for a 2-hour schedule) so articles age out naturally between runs.
 
 ---
 
-## How It Works (technical)
+## How It Works
 
-1. GitHub Actions triggers the workflow on a cron schedule
-2. The bot picks a random content type (template / RSS / AI)
-3. For AI posts, it calls the Hugging Face Inference API
-4. For RSS posts, it fetches the latest item from a random feed
-5. It launches a headless Chromium browser, injects your session cookies, navigates to x.com, and posts the tweet
-6. Screenshots are saved for debugging if anything goes wrong
+1. GitHub Actions triggers on cron every 2 hours (`RUN_ONCE=true`)
+2. The bot loads all 290 feeds from `data/rss_feeds.json`
+3. All feeds are fetched concurrently (15 at a time) with a 15-second timeout each
+4. Articles newer than `MAX_ARTICLE_AGE_HOURS` that haven't been seen are collected
+5. Results are sorted newest-first and tweeted one by one with a `TWEET_DELAY_SECONDS` gap
+6. A headless Chromium browser injects your session cookies, navigates to x.com, and posts each tweet
+7. Screenshots are saved automatically if anything goes wrong
 
 ---
 

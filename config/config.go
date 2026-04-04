@@ -2,30 +2,52 @@ package config
 
 import (
 	"os"
+	"strconv"
+	"time"
+
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	TwitterUsername     string
-	TwitterPassword     string
-	HuggingFaceAPIKey   string
-	PostMode            string
+	TwitterUsername string
+	TwitterPassword string
+
+	// Category filter — empty means all categories
+	// e.g. "tech", "cybersecurity", "world" — matches category field in rss_feeds.json
+	Category string
+
+	// How often to poll all feeds
+	PollInterval time.Duration
+
+	// Ignore articles older than this
+	MaxArticleAge time.Duration
+
+	// Minimum gap between tweets to avoid rate limits
+	TweetDelay time.Duration
+
+	// Max tweets per run (0 = unlimited)
+	MaxTweetsPerRun int
 }
 
 func Load() (*Config, error) {
 	godotenv.Load()
 
 	return &Config{
-		TwitterUsername:   os.Getenv("TWITTER_USERNAME"),
-		TwitterPassword:   os.Getenv("TWITTER_PASSWORD"),
-		HuggingFaceAPIKey: os.Getenv("HUGGINGFACE_API_KEY"),
-		PostMode:          getEnvOrDefault("POST_MODE", "random"),
+		TwitterUsername: os.Getenv("TWITTER_USERNAME"),
+		TwitterPassword: os.Getenv("TWITTER_PASSWORD"),
+		Category:        os.Getenv("CATEGORY"), // optional
+		PollInterval:    envDuration("POLL_INTERVAL_MINUTES", 5) * time.Minute,
+		MaxArticleAge:   envDuration("MAX_ARTICLE_AGE_HOURS", 2) * time.Hour,
+		TweetDelay:      envDuration("TWEET_DELAY_SECONDS", 90) * time.Second,
+		MaxTweetsPerRun: int(envDuration("MAX_TWEETS_PER_RUN", 5)),
 	}, nil
 }
 
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func envDuration(key string, defaultVal int64) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return time.Duration(n)
+		}
 	}
-	return defaultValue
+	return time.Duration(defaultVal)
 }

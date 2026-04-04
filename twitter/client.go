@@ -39,21 +39,35 @@ func (c *Client) Tweet(message string) error {
 		return fmt.Errorf("tweet exceeds 280 characters: %d", len(message))
 	}
 
-	fmt.Println("🌐 Launching browser...")
+	fmt.Println("Launching browser...")
 
 	l := launcher.New().
 		Headless(true).
-		Set("no-sandbox").
 		Set("disable-dev-shm-usage").
+		Set("disable-gpu").
 		Set("disable-blink-features", "AutomationControlled").
+		Set("disable-extensions").
+		Set("no-first-run").
 		Set("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36").
 		Set("window-size", "1280,800")
 
-	if path, exists := launcher.LookPath(); exists {
+	// Resolve browser: snap chromium → rod cache → system PATH
+	if path := snapChromium(); path != "" {
 		l = l.Bin(path)
+	} else if path, exists := launcher.LookPath(); exists {
+		l = l.Bin(path)
+	} else if path := rodCachedBrowser(); path != "" {
+		l = l.Bin(path).Set("no-sandbox").Set("disable-setuid-sandbox")
+	} else {
+		return fmt.Errorf("no Chromium/Chrome binary found — install chromium or google-chrome")
 	}
 
-	browser := rod.New().ControlURL(l.MustLaunch()).MustConnect()
+	u, err := l.Launch()
+	if err != nil {
+		return fmt.Errorf("failed to launch browser: %w", err)
+	}
+
+	browser := rod.New().ControlURL(u).MustConnect()
 	defer browser.MustClose()
 
 	page := browser.MustPage("")
@@ -64,7 +78,7 @@ func (c *Client) Tweet(message string) error {
 		return fmt.Errorf("failed to load cookies: %w", err)
 	}
 
-	fmt.Println("🔐 Loading session...")
+	fmt.Println("Loading session...")
 	page.MustNavigate("https://x.com/home")
 	// Wait for network to be idle and page fully loaded
 	page.MustWaitLoad()
@@ -72,13 +86,13 @@ func (c *Client) Tweet(message string) error {
 	page.MustScreenshot("debug_home.png")
 
 	// Verify we're logged in
-	_, err := page.Timeout(15 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+	_, err = page.Timeout(15 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
 	if err != nil {
 		page.MustScreenshot("debug_home.png")
 		return fmt.Errorf("session invalid or expired — please refresh cookies.json: %w", err)
 	}
 
-	fmt.Println("✅ Session valid, composing tweet...")
+	fmt.Println("Session valid, composing tweet...")
 
 	newTweetBtn, err := page.Timeout(timeout).Element(`[data-testid="SideNav_NewTweet_Button"]`)
 	if err != nil {
@@ -111,11 +125,54 @@ func (c *Client) Tweet(message string) error {
 	time.Sleep(3 * time.Second)
 
 	page.MustScreenshot("tweet_confirmation.png")
-	fmt.Println("\n✅ Tweet posted!")
-	fmt.Println("📸 Screenshot saved to tweet_confirmation.png")
+	fmt.Println("\n Tweet posted!")
+	fmt.Println("Screenshot saved to tweet_confirmation.png")
 	fmt.Println("\n" + strings.Repeat("=", 60))
 
 	return nil
+}
+
+// snapChromium returns the snap chromium path if installed
+func snapChromium() string {
+	candidates := []string{
+		"/snap/bin/chromium",
+		"/usr/bin/chromium",
+		"/usr/bin/chromium-browser",
+		"/usr/bin/google-chrome-stable",
+		"/usr/bin/google-chrome",
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// rodCachedBrowser returns the path to rod's downloaded Chromium if present
+func rodCachedBrowser() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	cacheDir := home + "/.cache/rod/browser"
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		// try both common binary names
+		for _, bin := range []string{"/chrome-linux/chrome", "/chrome"} {
+			p := cacheDir + "/" + e.Name() + bin
+			if _, err := os.Stat(p); err == nil {
+				return p
+			}
+		}
+	}
+	return ""
 }
 
 func loadCookies(page *rod.Page) error {
