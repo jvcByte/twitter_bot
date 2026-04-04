@@ -4,8 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"html"
 	"math/rand"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -177,7 +179,7 @@ func Poll(seen *SeenStore, maxAge time.Duration, category string) ([]Article, er
 				articles = append(articles, Article{
 					FeedName:  feed.Name,
 					Category:  feed.Category,
-					Title:     strings.TrimSpace(item.Title),
+					Title:     sanitize(item.Title),
 					Link:      item.Link,
 					Published: pub,
 				})
@@ -194,6 +196,15 @@ func Poll(seen *SeenStore, maxAge time.Duration, category string) ([]Article, er
 	})
 
 	return articles, nil
+}
+
+// sanitize strips HTML tags and decodes HTML entities from feed text
+var htmlTagRe = regexp.MustCompile(`<[^>]+>`)
+
+func sanitize(s string) string {
+	s = htmlTagRe.ReplaceAllString(s, "")  // strip tags
+	s = html.UnescapeString(s)             // decode &amp; &lt; &#39; etc.
+	return strings.TrimSpace(s)
 }
 
 // Format builds a tweet string from an Article, guaranteed <= 280 chars
