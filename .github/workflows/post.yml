@@ -2,7 +2,7 @@ name: Post Tweet
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # every 2 hours
+    - cron: '0 */6 * * *'  # every 6 hours (4x/day)
   workflow_dispatch:        # manual trigger
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
-          MAX_ARTICLE_AGE_HOURS: 3
+          MAX_ARTICLE_AGE_HOURS: 7
           TWEET_DELAY_SECONDS: 90
           MAX_TWEETS_PER_RUN: 5
           RUN_ONCE: true
