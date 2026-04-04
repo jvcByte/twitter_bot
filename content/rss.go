@@ -1,59 +1,212 @@
 package content
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/mmcdole/gofeed"
 )
 
+// RSSFeed represents a single feed source from rss_feeds.json
 type RSSFeed struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Category string `json:"category"`
 }
 
-func GetRSSPost() (string, error) {
+// Article is a fetched news item ready to be tweeted
+type Article struct {
+	FeedName  string
+	Category  string
+	Title     string
+	Link      string
+	Published time.Time
+}
+
+// SeenStore persists seen article hashes across restarts to prevent duplicates
+type SeenStore struct {
+	mu   sync.Mutex
+	path string
+	seen map[string]bool
+}
+
+func NewSeenStore(path string) *SeenStore {
+	s := &SeenStore{path: path, seen: make(map[string]bool)}
+	s.load()
+	return s
+}
+
+func (s *SeenStore) load() {
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		return
+	}
+	var keys []string
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return
+	}
+	for _, k := range keys {
+		s.seen[k] = true
+	}
+}
+
+func (s *SeenStore) save() {
+	keys := make([]string, 0, len(s.seen))
+	for k := range s.seen {
+		keys = append(keys, k)
+	}
+	// Cap at 10k entries to avoid unbounded growth
+	if len(keys) > 10000 {
+		sort.Strings(keys)
+		keys = keys[len(keys)-10000:]
+	}
+	data, _ := json.Marshal(keys)
+	os.WriteFile(s.path, data, 0644)
+}
+
+func (s *SeenStore) Has(link string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.seen[articleHash(link)]
+}
+
+func (s *SeenStore) Add(link string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.seen[articleHash(link)] = true
+	s.save()
+}
+
+func articleHash(s string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(s)))[:16]
+}
+
+// LoadFeeds reads and parses rss_feeds.json
+func LoadFeeds() ([]RSSFeed, error) {
 	data, err := os.ReadFile("data/rss_feeds.json")
 	if err != nil {
-		return "", fmt.Errorf("failed to read RSS feeds: %w", err)
+		return nil, fmt.Errorf("failed to read rss_feeds.json: %w", err)
 	}
-
 	var feeds []RSSFeed
 	if err := json.Unmarshal(data, &feeds); err != nil {
-		return "", fmt.Errorf("failed to parse RSS feeds: %w", err)
+		return nil, fmt.Errorf("failed to parse rss_feeds.json: %w", err)
 	}
-
-	rand.Seed(time.Now().UnixNano())
-	feed := feeds[rand.Intn(len(feeds))]
-
-	fp := gofeed.NewParser()
-	parsedFeed, err := fp.ParseURL(feed.URL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse feed %s: %w", feed.Name, err)
-	}
-
-	if len(parsedFeed.Items) == 0 {
-		return "", fmt.Errorf("no items in feed %s", feed.Name)
-	}
-
-	item := parsedFeed.Items[rand.Intn(min(10, len(parsedFeed.Items)))]
-	
-	post := fmt.Sprintf("📰 %s\n\n%s\n\n#Tech #News", item.Title, item.Link)
-	
-	if len(post) > 280 {
-		maxTitleLen := 280 - len(item.Link) - 20
-		post = fmt.Sprintf("📰 %s...\n\n%s\n\n#Tech", item.Title[:maxTitleLen], item.Link)
-	}
-
-	return post, nil
+	return feeds, nil
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+// Poll fetches all feeds concurrently and returns unseen articles newer than maxAge, sorted newest first.
+// category filters to a specific category when non-empty ("" = all).
+func Poll(seen *SeenStore, maxAge time.Duration, category string) ([]Article, error) {
+	feeds, err := LoadFeeds()
+	if err != nil {
+		return nil, err
 	}
-	return b
+
+	// Filter by category if requested
+	if category != "" {
+		filtered := feeds[:0]
+		for _, f := range feeds {
+			if strings.EqualFold(f.Category, category) {
+				filtered = append(filtered, f)
+			}
+		}
+		feeds = filtered
+	}
+
+	// Shuffle so no single source dominates
+	rand.Shuffle(len(feeds), func(i, j int) { feeds[i], feeds[j] = feeds[j], feeds[i] })
+
+	cutoff := time.Now().Add(-maxAge)
+
+	var (
+		articles []Article
+		mu       sync.Mutex
+		wg       sync.WaitGroup
+	)
+
+	// Semaphore: max 15 concurrent feed fetches
+	sem := make(chan struct{}, 15)
+	fp := gofeed.NewParser()
+	fp.Client = newHTTPClient()
+
+	for _, f := range feeds {
+		wg.Add(1)
+		go func(feed RSSFeed) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			parsed, err := fp.ParseURL(feed.URL)
+			if err != nil {
+				return // silently skip broken feeds
+			}
+
+			for _, item := range parsed.Items {
+				if item.Link == "" {
+					continue
+				}
+
+				// Use GUID for dedup if available, fall back to link
+				id := item.GUID
+				if id == "" {
+					id = item.Link
+				}
+				if seen.Has(id) {
+					continue
+				}
+
+				pub := time.Now()
+				if item.PublishedParsed != nil {
+					pub = *item.PublishedParsed
+				} else if item.UpdatedParsed != nil {
+					pub = *item.UpdatedParsed
+				}
+
+				if pub.Before(cutoff) {
+					continue
+				}
+
+				mu.Lock()
+				articles = append(articles, Article{
+					FeedName:  feed.Name,
+					Category:  feed.Category,
+					Title:     strings.TrimSpace(item.Title),
+					Link:      item.Link,
+					Published: pub,
+				})
+				mu.Unlock()
+			}
+		}(f)
+	}
+
+	wg.Wait()
+
+	// Newest first
+	sort.Slice(articles, func(i, j int) bool {
+		return articles[i].Published.After(articles[j].Published)
+	})
+
+	return articles, nil
+}
+
+// Format builds a tweet string from an Article, guaranteed <= 280 chars
+func Format(a Article) string {
+	base := fmt.Sprintf("📰 %s\n\n%s | %s", a.Title, a.FeedName, a.Link)
+	if len(base) <= 280 {
+		return base
+	}
+
+	overhead := len(fmt.Sprintf("📰 ...\n\n%s | %s", a.FeedName, a.Link))
+	if overhead >= 280 {
+		return fmt.Sprintf("📰 %s", a.Title)[:280]
+	}
+	maxTitle := 280 - overhead
+	return fmt.Sprintf("📰 %s...\n\n%s | %s", a.Title[:maxTitle], a.FeedName, a.Link)
 }
