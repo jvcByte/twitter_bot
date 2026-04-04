@@ -35,6 +35,10 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
+          POST_MODE: news
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          IMGFLIP_USERNAME: ${{ secrets.IMGFLIP_USERNAME }}
+          IMGFLIP_PASSWORD: ${{ secrets.IMGFLIP_PASSWORD }}
           MAX_ARTICLE_AGE_HOURS: 7
           TWEET_DELAY_SECONDS: 90
           MAX_TWEETS_PER_RUN: 5
