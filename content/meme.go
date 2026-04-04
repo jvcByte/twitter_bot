@@ -97,7 +97,7 @@ func GenerateMemePost(apiKey, headline string) (string, error) {
 	}
 
 	reqBody := groqRequest{
-		Model: "llama3-8b-8192",
+		Model: "llama-3.3-70b-versatile",
 		Messages: []groqMessage{
 			{
 				Role: "system",
