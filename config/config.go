@@ -12,6 +12,9 @@ type Config struct {
 	TwitterUsername string
 	TwitterPassword string
 
+	// Path to the feeds JSON file (default: data/rss_feeds.json)
+	FeedsFile string
+
 	// Category filter — empty means all categories
 	// e.g. "tech", "cybersecurity", "world" — matches category field in rss_feeds.json
 	Category string
@@ -35,6 +38,7 @@ func Load() (*Config, error) {
 	return &Config{
 		TwitterUsername: os.Getenv("TWITTER_USERNAME"),
 		TwitterPassword: os.Getenv("TWITTER_PASSWORD"),
+		FeedsFile:       getEnvOrDefault("FEEDS_FILE", "data/rss_feeds.json"),
 		Category:        os.Getenv("CATEGORY"), // optional
 		PollInterval:    envDuration("POLL_INTERVAL_MINUTES", 5) * time.Minute,
 		MaxArticleAge:   envDuration("MAX_ARTICLE_AGE_HOURS", 2) * time.Hour,

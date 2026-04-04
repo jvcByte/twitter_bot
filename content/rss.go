@@ -90,23 +90,23 @@ func articleHash(s string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(s)))[:16]
 }
 
-// LoadFeeds reads and parses rss_feeds.json
-func LoadFeeds() ([]RSSFeed, error) {
-	data, err := os.ReadFile("data/rss_feeds.json")
+// LoadFeeds reads and parses a feeds JSON file
+func LoadFeeds(path string) ([]RSSFeed, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read rss_feeds.json: %w", err)
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
 	}
 	var feeds []RSSFeed
 	if err := json.Unmarshal(data, &feeds); err != nil {
-		return nil, fmt.Errorf("failed to parse rss_feeds.json: %w", err)
+		return nil, fmt.Errorf("failed to parse %s: %w", path, err)
 	}
 	return feeds, nil
 }
 
 // Poll fetches all feeds concurrently and returns unseen articles newer than maxAge, sorted newest first.
-// category filters to a specific category when non-empty ("" = all).
-func Poll(seen *SeenStore, maxAge time.Duration, category string) ([]Article, error) {
-	feeds, err := LoadFeeds()
+// feedsFile is the path to the JSON feeds file. category filters by category when non-empty.
+func Poll(seen *SeenStore, maxAge time.Duration, feedsFile, category string) ([]Article, error) {
+	feeds, err := LoadFeeds(feedsFile)
 	if err != nil {
 		return nil, err
 	}
