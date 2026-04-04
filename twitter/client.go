@@ -100,7 +100,7 @@ func (c *Client) Tweet(message string) error {
 		return fmt.Errorf("new tweet button not found: %w", err)
 	}
 	newTweetBtn.MustEval(`() => this.click()`)
-	time.Sleep(2 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	tweetBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
 	if err != nil {
@@ -122,19 +122,20 @@ func (c *Client) Tweet(message string) error {
 		return fmt.Errorf("tweet submit button not found: %w", err)
 	}
 	submitBtn.MustEval(`() => this.click()`)
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
 	page.MustScreenshot("tweet_confirmation.png")
 
-	// Check for Twitter's duplicate/error toast
+	// Check for error toast — ignore success toasts
 	if errMsg, _ := page.Timeout(3 * time.Second).Element(`[data-testid="toast"]`); errMsg != nil {
 		text, _ := errMsg.Text()
-		return fmt.Errorf("twitter rejected tweet: %s", text)
-	}
-
-	// Confirm composer closed — means tweet was accepted
-	if _, e := page.Timeout(5 * time.Second).Element(`[data-testid="tweetTextarea_0"]`); e == nil {
-		return fmt.Errorf("tweet composer still open — tweet may not have been sent")
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "already said") ||
+			strings.Contains(lower, "something went wrong") ||
+			strings.Contains(lower, "try again") ||
+			strings.Contains(lower, "limit") {
+			return fmt.Errorf("twitter rejected tweet: %s", text)
+		}
 	}
 
 	fmt.Println("Tweet posted!")
