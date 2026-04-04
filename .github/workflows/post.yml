@@ -8,6 +8,7 @@ on:
 jobs:
   post:
     runs-on: ubuntu-latest
+    timeout-minutes: 15    # kill the job if it hangs
 
     steps:
       - name: Checkout code
@@ -18,16 +19,20 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Install Chromium
-        run: sudo apt-get install -y chromium-browser
-
       - name: Cache Go modules
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb
+          sudo apt-get install -f -y
+          google-chrome --version
 
       - name: Download dependencies
         run: go mod download
@@ -37,7 +42,7 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
-          MAX_ARTICLE_AGE_HOURS: 3   # look back 3h to cover the 2h gap between runs
+          MAX_ARTICLE_AGE_HOURS: 3
           TWEET_DELAY_SECONDS: 90
           MAX_TWEETS_PER_RUN: 5
           RUN_ONCE: true
@@ -47,5 +52,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
+          name: debug-screenshots-${{ github.run_id }}
           path: "*.png"
+          if-no-files-found: ignore
