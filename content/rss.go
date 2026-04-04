@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io"
 	"math/rand"
+	"net/http"
 	"os"
 	"regexp"
 	"sort"
@@ -29,6 +31,7 @@ type Article struct {
 	Category  string
 	Title     string
 	Link      string
+	ImageURL  string
 	Published time.Time
 }
 
@@ -177,6 +180,7 @@ func Poll(seen *SeenStore, maxAge time.Duration, feedsFile, category string) ([]
 					Category:  feed.Category,
 					Title:     sanitize(item.Title),
 					Link:      item.Link,
+					ImageURL:  extractImage(item),
 					Published: pub,
 				})
 				mu.Unlock()
@@ -216,4 +220,80 @@ func Format(a Article) string {
 	}
 	maxTitle := 280 - overhead
 	return fmt.Sprintf("📰 %s...\n\n%s | %s", a.Title[:maxTitle], a.FeedName, a.Link)
+}
+
+// extractImage pulls the best available image URL from a feed item
+func extractImage(item *gofeed.Item) string {
+	// 1. media:content or media:thumbnail (most common in news feeds)
+	if item.Image != nil && item.Image.URL != "" {
+		return item.Image.URL
+	}
+	// 2. enclosures (podcasts/RSS standard)
+	for _, enc := range item.Enclosures {
+		if strings.HasPrefix(enc.Type, "image/") && enc.URL != "" {
+			return enc.URL
+		}
+	}
+	// 3. extensions: media:content
+	if media, ok := item.Extensions["media"]; ok {
+		if contents, ok := media["content"]; ok {
+			for _, c := range contents {
+				if url, ok := c.Attrs["url"]; ok && url != "" {
+					return url
+				}
+			}
+		}
+		if thumbs, ok := media["thumbnail"]; ok {
+			for _, t := range thumbs {
+				if url, ok := t.Attrs["url"]; ok && url != "" {
+					return url
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// DownloadImage downloads an image URL to a temp file and returns the local path.
+// Returns ("", nil) if imageURL is empty. Caller is responsible for deleting the file.
+func DownloadImage(imageURL string) (string, error) {
+	if imageURL == "" {
+		return "", nil
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(imageURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("image download returned %d", resp.StatusCode)
+	}
+
+	// Determine extension from Content-Type
+	ext := ".jpg"
+	ct := resp.Header.Get("Content-Type")
+	switch {
+	case strings.Contains(ct, "png"):
+		ext = ".png"
+	case strings.Contains(ct, "gif"):
+		ext = ".gif"
+	case strings.Contains(ct, "webp"):
+		ext = ".webp"
+	}
+
+	f, err := os.CreateTemp("", "tweet_img_*"+ext)
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		os.Remove(f.Name())
+		return "", fmt.Errorf("failed to write image: %w", err)
+	}
+
+	return f.Name(), nil
 }

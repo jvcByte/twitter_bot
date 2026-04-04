@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -157,4 +158,92 @@ func GenerateMemePost(apiKey, headline string) (string, error) {
 	}
 
 	return post, nil
+}
+
+// imgflip meme templates relevant to tech/dev culture
+var memeTemplates = []struct {
+	id   string
+	name string
+}{
+	{"181913649", "Drake Hotline Bling"},
+	{"87743020", "Two Buttons"},
+	{"112126428", "Distracted Boyfriend"},
+	{"131087935", "Running Away Balloon"},
+	{"217743513", "UNO Draw 25 Cards"},
+	{"124822590", "Left Exit 12 Off Ramp"},
+	{"247375501", "Buff Doge vs. Cheems"},
+	{"101470", "Ancient Aliens"},
+	{"61579", "One Does Not Simply"},
+	{"93895088", "Expanding Brain"},
+	{"129242436", "Change My Mind"},
+	{"148909805", "Monkey Puppet"},
+	{"91538330", "X, X Everywhere"},
+	{"4087833", "Waiting Skeleton"},
+	{"135256802", "Epic Handshake"},
+}
+
+type imgflipResponse struct {
+	Success bool `json:"success"`
+	Data    struct {
+		URL string `json:"url"`
+	} `json:"data"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// GenerateMemeImage creates a meme image using Imgflip and returns a local temp file path.
+// text0 = top text, text1 = bottom text.
+// Returns ("", nil) if username/password are empty.
+func GenerateMemeImage(username, password, text0, text1 string) (string, error) {
+	if username == "" || password == "" {
+		return "", nil
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	tmpl := memeTemplates[rand.Intn(len(memeTemplates))]
+
+	resp, err := http.PostForm("https://api.imgflip.com/caption_image", map[string][]string{
+		"template_id": {tmpl.id},
+		"username":    {username},
+		"password":    {password},
+		"text0":       {text0},
+		"text1":       {text1},
+	})
+	if err != nil {
+		return "", fmt.Errorf("imgflip request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read imgflip response: %w", err)
+	}
+
+	var ir imgflipResponse
+	if err := json.Unmarshal(body, &ir); err != nil {
+		return "", fmt.Errorf("failed to parse imgflip response: %w", err)
+	}
+	if !ir.Success {
+		return "", fmt.Errorf("imgflip error: %s", ir.ErrorMessage)
+	}
+
+	// Download the generated meme image
+	imgResp, err := http.Get(ir.Data.URL)
+	if err != nil {
+		return "", fmt.Errorf("failed to download meme image: %w", err)
+	}
+	defer imgResp.Body.Close()
+
+	f, err := os.CreateTemp("", "meme_*.jpg")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, imgResp.Body); err != nil {
+		os.Remove(f.Name())
+		return "", fmt.Errorf("failed to write meme image: %w", err)
+	}
+
+	fmt.Printf("  🖼  meme: %s (%s)\n", tmpl.name, ir.Data.URL)
+	return f.Name(), nil
 }
