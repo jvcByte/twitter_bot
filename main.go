@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jvcByte/twitter_bot/config"
@@ -87,8 +88,22 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		post := content.Format(a)
 		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
 
-		if err := client.Tweet(post); err != nil {
-			log.Printf("tweet failed: %v", err)
+		// Try to attach article image
+		imgPath, err := content.DownloadImage(a.ImageURL)
+		if err != nil {
+			log.Printf("  image download failed: %v — posting text only", err)
+		}
+
+		var tweetErr error
+		if imgPath != "" {
+			tweetErr = client.TweetWithMedia(post, imgPath)
+			os.Remove(imgPath)
+		} else {
+			tweetErr = client.Tweet(post)
+		}
+
+		if tweetErr != nil {
+			log.Printf("tweet failed: %v", tweetErr)
 			continue
 		}
 
@@ -113,11 +128,42 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 
 	fmt.Printf("→ [AI meme] %s\n", post)
 
-	if err := client.Tweet(post); err != nil {
-		log.Printf("tweet failed: %v", err)
+	// Try to generate a meme image via Imgflip
+	// Split post roughly in half for top/bottom text
+	top, bottom := splitMemeText(post)
+	imgPath, err := content.GenerateMemeImage(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+	if err != nil {
+		log.Printf("  meme image failed: %v — posting text only", err)
+	}
+
+	var tweetErr error
+	if imgPath != "" {
+		tweetErr = client.TweetWithMedia(post, imgPath)
+		os.Remove(imgPath)
+	} else {
+		tweetErr = client.Tweet(post)
+	}
+
+	if tweetErr != nil {
+		log.Printf("tweet failed: %v", tweetErr)
 		return
 	}
 	fmt.Println("  ✓ tweeted")
+}
+
+// splitMemeText splits a post into top/bottom text for meme templates
+func splitMemeText(post string) (string, string) {
+	lines := strings.SplitN(post, "\n", 2)
+	if len(lines) == 2 {
+		return strings.TrimSpace(lines[0]), strings.TrimSpace(lines[1])
+	}
+	// Split at midpoint word boundary
+	words := strings.Fields(post)
+	if len(words) <= 2 {
+		return post, ""
+	}
+	mid := len(words) / 2
+	return strings.Join(words[:mid], " "), strings.Join(words[mid:], " ")
 }
 
 func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {

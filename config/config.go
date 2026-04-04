@@ -36,6 +36,10 @@ type Config struct {
 
 	// Groq API key for AI-generated meme/humor posts
 	GroqAPIKey string
+
+	// Imgflip credentials for meme image generation (free at imgflip.com)
+	ImgflipUsername string
+	ImgflipPassword string
 }
 
 func Load() (*Config, error) {
@@ -52,6 +56,8 @@ func Load() (*Config, error) {
 		MaxTweetsPerRun: int(envDuration("MAX_TWEETS_PER_RUN", 5)),
 		PostMode:        envString("POST_MODE", "news"),
 		GroqAPIKey:      os.Getenv("GROQ_API_KEY"),
+		ImgflipUsername: os.Getenv("IMGFLIP_USERNAME"),
+		ImgflipPassword: os.Getenv("IMGFLIP_PASSWORD"),
 	}, nil
 }
 
