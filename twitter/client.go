@@ -125,9 +125,21 @@ func (c *Client) Tweet(message string) error {
 	time.Sleep(3 * time.Second)
 
 	page.MustScreenshot("tweet_confirmation.png")
-	fmt.Println("\n Tweet posted!")
+
+	// Check for Twitter's duplicate/error toast
+	if errMsg, _ := page.Timeout(3 * time.Second).Element(`[data-testid="toast"]`); errMsg != nil {
+		text, _ := errMsg.Text()
+		return fmt.Errorf("twitter rejected tweet: %s", text)
+	}
+
+	// Confirm composer closed — means tweet was accepted
+	if _, e := page.Timeout(5 * time.Second).Element(`[data-testid="tweetTextarea_0"]`); e == nil {
+		return fmt.Errorf("tweet composer still open — tweet may not have been sent")
+	}
+
+	fmt.Println("Tweet posted!")
 	fmt.Println("Screenshot saved to tweet_confirmation.png")
-	fmt.Println("\n" + strings.Repeat("=", 60))
+	fmt.Println(strings.Repeat("=", 60))
 
 	return nil
 }
