@@ -30,6 +30,12 @@ type Config struct {
 
 	// Max tweets per run (0 = unlimited)
 	MaxTweetsPerRun int
+
+	// POST_MODE controls content type: "news", "meme", or "mixed"
+	PostMode string
+
+	// Groq API key for AI-generated meme/humor posts
+	GroqAPIKey string
 }
 
 func Load() (*Config, error) {
@@ -44,6 +50,8 @@ func Load() (*Config, error) {
 		MaxArticleAge:   envDuration("MAX_ARTICLE_AGE_HOURS", 2) * time.Hour,
 		TweetDelay:      envDuration("TWEET_DELAY_SECONDS", 90) * time.Second,
 		MaxTweetsPerRun: int(envDuration("MAX_TWEETS_PER_RUN", 5)),
+		PostMode:        envString("POST_MODE", "news"),
+		GroqAPIKey:      os.Getenv("GROQ_API_KEY"),
 	}, nil
 }
 
