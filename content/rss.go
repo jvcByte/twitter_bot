@@ -155,12 +155,8 @@ func Poll(seen *SeenStore, maxAge time.Duration, category string) ([]Article, er
 					continue
 				}
 
-				// Use GUID for dedup if available, fall back to link
-				id := item.GUID
-				if id == "" {
-					id = item.Link
-				}
-				if seen.Has(id) {
+				// Always deduplicate by link for consistency
+				if seen.Has(item.Link) {
 					continue
 				}
 
