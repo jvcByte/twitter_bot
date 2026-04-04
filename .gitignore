@@ -1,9 +1,6 @@
 .env
 *.png
 data/seen_articles.json
-deduplicated_news_platforms.html
-top200_news_platforms.html
-new_platfor.txt
 *.log
 twitter-bot
 dist/
