@@ -38,13 +38,20 @@ func Load() (*Config, error) {
 	return &Config{
 		TwitterUsername: os.Getenv("TWITTER_USERNAME"),
 		TwitterPassword: os.Getenv("TWITTER_PASSWORD"),
-		FeedsFile:       getEnvOrDefault("FEEDS_FILE", "data/rss_feeds.json"),
+		FeedsFile:       envString("FEEDS_FILE", "data/rss_feeds.json"),
 		Category:        os.Getenv("CATEGORY"), // optional
 		PollInterval:    envDuration("POLL_INTERVAL_MINUTES", 5) * time.Minute,
 		MaxArticleAge:   envDuration("MAX_ARTICLE_AGE_HOURS", 2) * time.Hour,
 		TweetDelay:      envDuration("TWEET_DELAY_SECONDS", 90) * time.Second,
 		MaxTweetsPerRun: int(envDuration("MAX_TWEETS_PER_RUN", 5)),
 	}, nil
+}
+
+func envString(key, defaultVal string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return defaultVal
 }
 
 func envDuration(key string, defaultVal int64) time.Duration {
