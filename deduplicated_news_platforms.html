@@ -1,0 +1,360 @@
+
+<style>
+  .wrap{padding:1rem 0;font-family:var(--font-sans);}
+  .topbar{display:flex;gap:10px;margin-bottom:1rem;align-items:center;flex-wrap:wrap;}
+  .topbar input{flex:1;min-width:180px;}
+  .stat{font-size:12px;color:var(--color-text-tertiary);white-space:nowrap;}
+  .filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem;}
+  .chip{font-size:11px;padding:4px 12px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;}
+  .chip.on{background:var(--color-background-info);color:var(--color-text-info);border-color:transparent;font-weight:500;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:9px;}
+  .card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:.8rem .95rem;display:flex;flex-direction:column;gap:4px;}
+  .card:hover{border-color:var(--color-border-secondary);}
+  .ct{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;}
+  .cn{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+  .badge{font-size:9px;padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+  .b-world{background:#EAF3DE;color:#27500A;}
+  .b-tech{background:#E6F1FB;color:#0C447C;}
+  .b-cyber{background:#FCEBEB;color:#791F1F;}
+  .b-env{background:#E1F5EE;color:#085041;}
+  .b-biz{background:#FAEEDA;color:#633806;}
+  .b-sci{background:#EEEDFE;color:#3C3489;}
+  .b-agg{background:#F1EFE8;color:#444441;}
+  .b-health{background:#F4C0D1;color:#72243E;}
+  .b-start{background:#CECBF6;color:#26215C;}
+  .cd{font-size:11px;color:var(--color-text-secondary);line-height:1.45;}
+  .cl{font-size:10px;color:var(--color-text-info);text-decoration:none;}
+  .cl:hover{text-decoration:underline;}
+  .tags{display:flex;flex-wrap:wrap;gap:3px;}
+  .tag{font-size:9px;color:var(--color-text-tertiary);background:var(--color-background-secondary);padding:1px 6px;border-radius:8px;}
+  .count{font-size:12px;color:var(--color-text-secondary);margin-bottom:.6rem;}
+  .empty{text-align:center;padding:2rem;color:var(--color-text-tertiary);font-size:13px;}
+  .pager{display:flex;flex-wrap:wrap;gap:6px;margin-top:1rem;}
+  .pb{font-size:11px;padding:4px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary);cursor:pointer;}
+  .pb.on{background:var(--color-background-info);color:var(--color-text-info);border-color:transparent;font-weight:500;}
+</style>
+<div class="wrap">
+  <div class="topbar">
+    <input type="text" id="q" placeholder="Search platforms, topics, tags..." oninput="go()"/>
+    <span class="stat" id="stat"></span>
+  </div>
+  <div class="filters" id="fbar"></div>
+  <div class="count" id="cnt"></div>
+  <div class="grid" id="grid"></div>
+  <div class="pager" id="pager"></div>
+</div>
+<script>
+const D=[
+  {name:"BBC News",cat:"world",desc:"Comprehensive world news from every continent.",tags:["global","politics","society"],url:"bbc.com/news"},
+  {name:"Reuters",cat:"world",desc:"Global newswire from 200+ locations — fast and trusted.",tags:["breaking","finance","conflict"],url:"reuters.com"},
+  {name:"Associated Press",cat:"world",desc:"World's oldest newswire — factual, neutral, fast.",tags:["breaking","verified","neutral"],url:"apnews.com"},
+  {name:"Al Jazeera",cat:"world",desc:"Independent news with strong Middle East and Africa coverage.",tags:["Middle East","Africa","conflict"],url:"aljazeera.com"},
+  {name:"The Guardian",cat:"world",desc:"Progressive world news — environment, society, politics.",tags:["climate","politics","society"],url:"theguardian.com"},
+  {name:"CNN International",cat:"world",desc:"24-hour global news and breaking events.",tags:["breaking","TV","global"],url:"cnn.com"},
+  {name:"The New York Times",cat:"world",desc:"Flagship US paper with strong international and tech coverage.",tags:["US","global","investigative"],url:"nytimes.com"},
+  {name:"Bloomberg",cat:"biz",desc:"Financial markets, tech giants, economics, and business strategy.",tags:["markets","finance","tech giants"],url:"bloomberg.com"},
+  {name:"Financial Times",cat:"biz",desc:"Premium global business and economics journalism.",tags:["economy","markets","trade"],url:"ft.com"},
+  {name:"NPR News",cat:"world",desc:"US public radio covering national and global stories.",tags:["US","public","radio"],url:"npr.org"},
+  {name:"Washington Post",cat:"world",desc:"Investigative US journalism with strong tech and policy sections.",tags:["US","investigative","policy"],url:"washingtonpost.com"},
+  {name:"Wall Street Journal",cat:"biz",desc:"Business, finance, and tech journalism from a trusted US paper.",tags:["finance","business","tech"],url:"wsj.com"},
+  {name:"Los Angeles Times",cat:"world",desc:"West Coast US journalism with global and tech coverage.",tags:["US","California","global"],url:"latimes.com"},
+  {name:"The Economist",cat:"biz",desc:"Rigorous global economics, politics, and tech analysis.",tags:["economics","global","analysis"],url:"economist.com"},
+  {name:"USA Today",cat:"world",desc:"Accessible US general news with broad coverage.",tags:["US","general","accessible"],url:"usatoday.com"},
+  {name:"The Times (UK)",cat:"world",desc:"UK broadsheet with strong global and business coverage.",tags:["UK","business","global"],url:"thetimes.co.uk"},
+  {name:"The Telegraph (UK)",cat:"world",desc:"UK conservative broadsheet with world and tech news.",tags:["UK","tech","world"],url:"telegraph.co.uk"},
+  {name:"Sydney Morning Herald",cat:"world",desc:"Australia's leading newspaper with Asia-Pacific coverage.",tags:["Australia","Asia-Pacific","news"],url:"smh.com.au"},
+  {name:"CBC News",cat:"world",desc:"Canadian public broadcaster with strong global news.",tags:["Canada","public","global"],url:"cbc.ca/news"},
+  {name:"ABC News Australia",cat:"world",desc:"Australian public broadcaster covering world and Pacific news.",tags:["Australia","Pacific","global"],url:"abc.net.au/news"},
+  {name:"France 24",cat:"world",desc:"French international news with European and African coverage.",tags:["France","Europe","Africa"],url:"france24.com"},
+  {name:"Deutsche Welle",cat:"world",desc:"German international broadcaster with science and tech reporting.",tags:["Germany","international","science"],url:"dw.com"},
+  {name:"South China Morning Post",cat:"world",desc:"Hong Kong-based news covering China, Asia, and tech policy.",tags:["China","Asia","policy"],url:"scmp.com"},
+  {name:"Japan Times",cat:"world",desc:"English-language news from Japan covering Asia and global affairs.",tags:["Japan","Asia","English"],url:"japantimes.co.jp"},
+  {name:"India Today",cat:"world",desc:"India's leading English news magazine with global outlook.",tags:["India","South Asia","news"],url:"indiatoday.in"},
+  {name:"Hindustan Times",cat:"world",desc:"Major Indian newspaper with tech and world news.",tags:["India","tech","world"],url:"hindustantimes.com"},
+  {name:"The Straits Times",cat:"world",desc:"Singapore's flagship paper — Southeast Asia and global coverage.",tags:["Singapore","SEA","global"],url:"straitstimes.com"},
+  {name:"El País",cat:"world",desc:"Spain's leading paper with English edition and tech coverage.",tags:["Spain","Latin America","English"],url:"elpais.com"},
+  {name:"Le Monde",cat:"world",desc:"France's paper of record with English edition.",tags:["France","global","English"],url:"lemonde.fr"},
+  {name:"Haaretz",cat:"world",desc:"Israeli newspaper with Middle East political analysis.",tags:["Israel","Middle East","politics"],url:"haaretz.com"},
+  {name:"The Irish Times",cat:"world",desc:"Ireland's newspaper of record with EU and global news.",tags:["Ireland","EU","global"],url:"irishtimes.com"},
+  {name:"The Globe and Mail",cat:"world",desc:"Canada's national newspaper with business and world sections.",tags:["Canada","business","world"],url:"theglobeandmail.com"},
+  {name:"TRT World",cat:"world",desc:"Turkish international broadcaster with global news coverage.",tags:["Turkey","global","international"],url:"trtworld.com"},
+  {name:"Euronews",cat:"world",desc:"Pan-European news network covering politics and business.",tags:["Europe","politics","business"],url:"euronews.com"},
+  {name:"Voice of America",cat:"world",desc:"US government international broadcaster — global news in 40+ languages.",tags:["US","international","languages"],url:"voanews.com"},
+  {name:"The Hindu",cat:"world",desc:"South India's top English paper with strong science coverage.",tags:["India","science","world"],url:"thehindu.com"},
+  {name:"Bangkok Post",cat:"world",desc:"Thailand's English-language paper covering Southeast Asia.",tags:["Thailand","SEA","English"],url:"bangkokpost.com"},
+  {name:"Gulf News",cat:"world",desc:"Dubai-based news covering Gulf region, business, and world.",tags:["Gulf","Middle East","business"],url:"gulfnews.com"},
+  {name:"TechCrunch",cat:"tech",desc:"Breaking startup news, funding rounds, and product launches.",tags:["startups","funding","AI"],url:"techcrunch.com"},
+  {name:"The Verge",cat:"tech",desc:"Tech news, product reviews, AI, gadgets, and Silicon Valley culture.",tags:["AI","gadgets","reviews"],url:"theverge.com"},
+  {name:"Wired",cat:"tech",desc:"Long-form journalism on AI, science, security, and how tech shapes society.",tags:["AI","science","culture"],url:"wired.com"},
+  {name:"Ars Technica",cat:"tech",desc:"In-depth technical analysis of hardware, software, science, and policy.",tags:["hardware","policy","deep dives"],url:"arstechnica.com"},
+  {name:"CNET",cat:"tech",desc:"Consumer technology news, reviews, and how-to guides.",tags:["consumer","reviews","how-to"],url:"cnet.com"},
+  {name:"Engadget",cat:"tech",desc:"Consumer electronics, gadgets, apps, and tech news.",tags:["gadgets","consumer","apps"],url:"engadget.com"},
+  {name:"Mashable",cat:"tech",desc:"Tech, digital culture, and social media news.",tags:["digital culture","social media","tech"],url:"mashable.com"},
+  {name:"VentureBeat",cat:"tech",desc:"AI and enterprise technology — how AI transforms industries.",tags:["AI","enterprise","ML"],url:"venturebeat.com"},
+  {name:"ZDNet",cat:"tech",desc:"Enterprise tech, cloud computing, cybersecurity, and software news.",tags:["enterprise","cloud","software"],url:"zdnet.com"},
+  {name:"Gizmodo",cat:"tech",desc:"Tech, science, culture, and design with sharp editorial voice.",tags:["tech","science","culture"],url:"gizmodo.com"},
+  {name:"Tom's Hardware",cat:"tech",desc:"In-depth hardware reviews, benchmarks, and PC component news.",tags:["hardware","CPUs","GPUs"],url:"tomshardware.com"},
+  {name:"Android Authority",cat:"tech",desc:"Android phones, apps, and Google ecosystem news.",tags:["Android","apps","reviews"],url:"androidauthority.com"},
+  {name:"9to5Mac",cat:"tech",desc:"Apple ecosystem news — iPhone, Mac, and Apple services.",tags:["Apple","iPhone","Mac"],url:"9to5mac.com"},
+  {name:"Slashdot",cat:"tech",desc:"Community tech news aggregator — geek-focused stories since 1997.",tags:["community","geek","aggregator"],url:"slashdot.org"},
+  {name:"PCMag",cat:"tech",desc:"Tech product reviews, software, and consumer electronics.",tags:["reviews","software","consumer"],url:"pcmag.com"},
+  {name:"Digital Trends",cat:"tech",desc:"Tech news, product reviews, and buying guides.",tags:["consumer","reviews","trends"],url:"digitaltrends.com"},
+  {name:"The Next Web (TNW)",cat:"tech",desc:"Tech news with a focus on Europe, startups, and digital economy.",tags:["Europe","startups","digital"],url:"thenextweb.com"},
+  {name:"TechRadar",cat:"tech",desc:"UK-based tech reviews, news, and buying advice.",tags:["UK","reviews","consumer"],url:"techradar.com"},
+  {name:"ExtremeTech",cat:"tech",desc:"Technical depth on hardware, gaming, and emerging tech.",tags:["hardware","gaming","emerging"],url:"extremetech.com"},
+  {name:"AnandTech",cat:"tech",desc:"Detailed semiconductor and chip architecture analysis.",tags:["chips","benchmarks","semiconductors"],url:"anandtech.com"},
+  {name:"Android Central",cat:"tech",desc:"Android news, reviews, and how-to guides.",tags:["Android","reviews","how-to"],url:"androidcentral.com"},
+  {name:"iMore",cat:"tech",desc:"Apple-focused news, tips, and product reviews.",tags:["Apple","tips","reviews"],url:"imore.com"},
+  {name:"Macworld",cat:"tech",desc:"Mac and Apple product news, reviews, and buying advice.",tags:["Mac","Apple","reviews"],url:"macworld.com"},
+  {name:"Windows Central",cat:"tech",desc:"Windows, Xbox, and Microsoft ecosystem news and reviews.",tags:["Windows","Xbox","Microsoft"],url:"windowscentral.com"},
+  {name:"XDA Developers",cat:"tech",desc:"Android development, rooting, custom ROMs, and mobile hardware.",tags:["Android","development","mobile"],url:"xda-developers.com"},
+  {name:"BetaNews",cat:"tech",desc:"Tech news, software releases, and industry analysis.",tags:["software","releases","industry"],url:"betanews.com"},
+  {name:"TechSpot",cat:"tech",desc:"PC hardware, software, and tech news with benchmarks.",tags:["hardware","PC","benchmarks"],url:"techspot.com"},
+  {name:"Liliputing",cat:"tech",desc:"Small and mobile computing — mini PCs, tablets, and handhelds.",tags:["mini PC","tablets","mobile"],url:"liliputing.com"},
+  {name:"TechRepublic",cat:"tech",desc:"IT professionals news — enterprise tech, cloud, and security.",tags:["IT","enterprise","cloud"],url:"techrepublic.com"},
+  {name:"MakeUseOf",cat:"tech",desc:"Practical tech tips, tutorials, and how-tos for consumers.",tags:["tips","tutorials","consumer"],url:"makeuseof.com"},
+  {name:"Cult of Mac",cat:"tech",desc:"Apple culture, product news, and enthusiast community.",tags:["Apple","culture","community"],url:"cultofmac.com"},
+  {name:"AppleInsider",cat:"tech",desc:"Deep Apple coverage — products, supply chain, and investor news.",tags:["Apple","supply chain","investor"],url:"appleinsider.com"},
+  {name:"Android Headlines",cat:"tech",desc:"Android phones, apps, and accessories news.",tags:["Android","phones","apps"],url:"androidheadlines.com"},
+  {name:"PocketNow",cat:"tech",desc:"Mobile phone news, reviews, and comparisons.",tags:["mobile","reviews","comparisons"],url:"pocketnow.com"},
+  {name:"Phandroid",cat:"tech",desc:"Android enthusiast news, tips, and reviews.",tags:["Android","enthusiast","tips"],url:"phandroid.com"},
+  {name:"The Information",cat:"tech",desc:"Investigative scoops on AI labs, Big Tech, and startups.",tags:["scoops","AI labs","exclusive"],url:"theinformation.com"},
+  {name:"Tech in Asia",cat:"tech",desc:"Asia-focused tech — startups, funding, and digital economy.",tags:["Asia","startups","digital economy"],url:"techinasia.com"},
+  {name:"SiliconANGLE",cat:"tech",desc:"Enterprise tech, AI, cloud, and data analysis.",tags:["enterprise","AI","cloud"],url:"siliconangle.com"},
+  {name:"MIT Technology Review",cat:"sci",desc:"Emerging tech from one of the world's top research institutions.",tags:["AI","biotech","climate"],url:"technologyreview.com"},
+  {name:"GeekWire",cat:"tech",desc:"Pacific Northwest tech news — Amazon, Microsoft, and startups.",tags:["Amazon","Microsoft","Pacific NW"],url:"geekwire.com"},
+  {name:"MacRumors",cat:"tech",desc:"Apple news, leaks, and community discussion since 2000.",tags:["Apple","leaks","iOS"],url:"macrumors.com"},
+  {name:"Protocol",cat:"tech",desc:"Tech policy, big company strategy, and Silicon Valley power.",tags:["policy","Big Tech","strategy"],url:"protocol.com"},
+  {name:"Semafor Tech",cat:"tech",desc:"Independent tech journalism with bias transparency.",tags:["independent","bias","journalism"],url:"semafor.com/tech"},
+  {name:"Axios",cat:"world",desc:"Smart concise briefings on tech, politics, business, and science.",tags:["concise","daily","tech"],url:"axios.com"},
+  {name:"Bloomberg Technology",cat:"tech",desc:"Bloomberg's dedicated technology news section.",tags:["Bloomberg","tech","finance"],url:"bloomberg.com/technology"},
+  {name:"Reuters Technology",cat:"tech",desc:"Reuters technology news section with global sourcing.",tags:["Reuters","global","tech"],url:"reuters.com/technology"},
+  {name:"CNBC Tech",cat:"biz",desc:"Real-time coverage of tech giants, earnings, and market news.",tags:["tech giants","earnings","markets"],url:"cnbc.com/technology"},
+  {name:"Forbes Technology",cat:"biz",desc:"Tech business strategy and industry rankings from Forbes.",tags:["strategy","rankings","industry"],url:"forbes.com/technology"},
+  {name:"Fast Company",cat:"biz",desc:"Innovation, design, and leadership — creativity meets technology.",tags:["innovation","design","leadership"],url:"fastcompany.com"},
+  {name:"Krebs on Security",cat:"cyber",desc:"Investigative cybersecurity journalism — gold standard for breach coverage.",tags:["breaches","malware","ransomware"],url:"krebsonsecurity.com"},
+  {name:"The Hacker News",cat:"cyber",desc:"Real-time cybersecurity news — vulnerabilities, exploits, zero-days.",tags:["CVEs","exploits","infosec"],url:"thehackernews.com"},
+  {name:"Dark Reading",cat:"cyber",desc:"Enterprise cybersecurity — threat intelligence and defense strategies.",tags:["enterprise","threats","CISO"],url:"darkreading.com"},
+  {name:"BleepingComputer",cat:"cyber",desc:"Breaking news on ransomware, malware, and data breaches.",tags:["ransomware","malware","threats"],url:"bleepingcomputer.com"},
+  {name:"CyberScoop",cat:"cyber",desc:"Cybersecurity policy, government hacking, and national security.",tags:["policy","government","national security"],url:"cyberscoop.com"},
+  {name:"Threatpost",cat:"cyber",desc:"Cybersecurity news covering vulnerabilities, malware, and breaches.",tags:["vulnerabilities","malware","breaches"],url:"threatpost.com"},
+  {name:"SC Media",cat:"cyber",desc:"Information security news with product reviews and analysis.",tags:["infosec","reviews","industry"],url:"scmagazine.com"},
+  {name:"SecurityWeek",cat:"cyber",desc:"Cybersecurity covering ICS, cloud security, nation-state threats.",tags:["ICS","cloud","nation-state"],url:"securityweek.com"},
+  {name:"Infosecurity Magazine",cat:"cyber",desc:"Global infosec news, threat reports, and compliance updates.",tags:["global","compliance","threats"],url:"infosecurity-magazine.com"},
+  {name:"Help Net Security",cat:"cyber",desc:"IT security news, research insights, and expert interviews.",tags:["IT security","research","interviews"],url:"helpnetsecurity.com"},
+  {name:"Cybercrime Magazine",cat:"cyber",desc:"Cybercrime statistics, trends, and industry forecasts.",tags:["cybercrime","statistics","trends"],url:"cybersecurityventures.com"},
+  {name:"Naked Security (Sophos)",cat:"cyber",desc:"Accessible cybersecurity news from Sophos researchers.",tags:["Sophos","accessible","research"],url:"nakedsecurity.sophos.com"},
+  {name:"Security Boulevard",cat:"cyber",desc:"Community cybersecurity content — blogs, news, and analysis.",tags:["community","blogs","analysis"],url:"securityboulevard.com"},
+  {name:"SANS Internet Storm Center",cat:"cyber",desc:"Daily cybersecurity threat analysis and vulnerability bulletins.",tags:["daily","threats","SANS"],url:"isc.sans.edu"},
+  {name:"Malwarebytes Labs",cat:"cyber",desc:"Malware research, threat intelligence, and consumer security.",tags:["malware","research","consumer"],url:"malwarebytes.com/blog"},
+  {name:"ESET Threat Center",cat:"cyber",desc:"Malware research and threat analysis from ESET.",tags:["malware","ESET","research"],url:"welivesecurity.com"},
+  {name:"CERT/US-CERT",cat:"cyber",desc:"Official US cybersecurity alerts, advisories, and warnings.",tags:["official","US","advisories"],url:"cisa.gov/uscert"},
+  {name:"CrowdStrike Blog",cat:"cyber",desc:"Adversary intelligence, endpoint security, and threat hunting.",tags:["adversary","endpoint","hunting"],url:"crowdstrike.com/blog"},
+  {name:"Palo Alto Unit 42",cat:"cyber",desc:"Threat research on malware, phishing, and cyberattack campaigns.",tags:["malware","phishing","campaigns"],url:"unit42.paloaltonetworks.com"},
+  {name:"Check Point Research",cat:"cyber",desc:"Cyber threat intelligence and malware analysis from Check Point.",tags:["threat intel","Check Point","malware"],url:"research.checkpoint.com"},
+  {name:"Cisco Talos",cat:"cyber",desc:"Threat intelligence and vulnerability research from Cisco Talos.",tags:["Cisco","threat intel","vulnerabilities"],url:"blog.talosintelligence.com"},
+  {name:"Microsoft Security Blog",cat:"cyber",desc:"Security research, threat reports, and product updates from Microsoft.",tags:["Microsoft","security","research"],url:"microsoft.com/security/blog"},
+  {name:"Google Security Blog",cat:"cyber",desc:"Security research and vulnerability disclosures from Google.",tags:["Google","research","vulnerabilities"],url:"security.googleblog.com"},
+  {name:"HackerOne Blog",cat:"cyber",desc:"Bug bounty, vulnerability disclosure, and hacker community news.",tags:["bug bounty","disclosure","community"],url:"hackerone.com/blog"},
+  {name:"Bugcrowd Blog",cat:"cyber",desc:"Crowdsourced security, bug bounty, and pen testing insights.",tags:["bug bounty","pen testing","crowdsourced"],url:"bugcrowd.com/blog"},
+  {name:"Schneier on Security",cat:"cyber",desc:"Expert security analysis, cryptography, and technology policy.",tags:["crypto","policy","analysis"],url:"schneier.com/blog"},
+  {name:"Risky.Biz",cat:"cyber",desc:"Weekly cybersecurity news podcast and newsletter.",tags:["podcast","weekly","news"],url:"risky.biz"},
+  {name:"The Record (Recorded Future)",cat:"cyber",desc:"Cybersecurity journalism with threat intelligence backing.",tags:["threat intel","journalism","APT"],url:"therecord.media"},
+  {name:"HackRead",cat:"cyber",desc:"Cybersecurity, hacking, and digital privacy news.",tags:["hacking","privacy","news"],url:"hackread.com"},
+  {name:"Security Affairs",cat:"cyber",desc:"Hacking, malware, and cyber espionage news from Pierluigi Paganini.",tags:["hacking","espionage","malware"],url:"securityaffairs.com"},
+  {name:"Troy Hunt (HaveIBeenPwned)",cat:"cyber",desc:"Data breach research and digital identity security insights.",tags:["breaches","identity","research"],url:"troyhunt.com"},
+  {name:"UNEP News",cat:"env",desc:"UN Environment Programme — global environmental policy and science.",tags:["UN","policy","environment"],url:"unep.org/news-and-stories"},
+  {name:"Climate Home News",cat:"env",desc:"International climate policy, UN negotiations, and emissions.",tags:["UN","policy","emissions"],url:"climatechangenews.com"},
+  {name:"Inside Climate News",cat:"env",desc:"Pulitzer Prize-winning climate and energy journalism.",tags:["climate","Pulitzer","energy"],url:"insideclimatenews.org"},
+  {name:"Environmental News Network",cat:"env",desc:"Environmental news aggregator covering science and policy.",tags:["aggregator","science","policy"],url:"enn.com"},
+  {name:"Yale Environment 360",cat:"env",desc:"Expert environmental analysis from Yale School of the Environment.",tags:["Yale","analysis","expert"],url:"e360.yale.edu"},
+  {name:"Mongabay",cat:"env",desc:"Rainforests, biodiversity, and conservation environmental journalism.",tags:["rainforest","biodiversity","conservation"],url:"mongabay.com"},
+  {name:"Grist",cat:"env",desc:"Climate solutions, environmental justice, and green economy.",tags:["solutions","justice","green economy"],url:"grist.org"},
+  {name:"Earth.org",cat:"env",desc:"Environment and climate science — global data and reporting.",tags:["data","climate","global"],url:"earth.org"},
+  {name:"NASA Earth Observatory",cat:"env",desc:"NASA's Earth science imagery, data, and climate monitoring.",tags:["NASA","imagery","climate"],url:"earthobservatory.nasa.gov"},
+  {name:"National Geographic Environment",cat:"env",desc:"Environmental storytelling with photography and deep reporting.",tags:["photography","storytelling","wildlife"],url:"nationalgeographic.com/environment"},
+  {name:"EcoWatch",cat:"env",desc:"Environmental and clean energy news for general audiences.",tags:["clean energy","accessible","news"],url:"ecowatch.com"},
+  {name:"CleanTechnica",cat:"env",desc:"Renewables, EVs, solar, wind, and climate tech news.",tags:["solar","EVs","wind"],url:"cleantechnica.com"},
+  {name:"Renewable Energy World",cat:"env",desc:"Solar, wind, hydro, and storage industry news.",tags:["solar","wind","storage"],url:"renewableenergyworld.com"},
+  {name:"E&E News",cat:"env",desc:"Energy and environment policy — regulation, Congress, and industry.",tags:["policy","regulation","energy"],url:"eenews.net"},
+  {name:"World Resources Institute",cat:"env",desc:"Research on climate, forests, water, and sustainable development.",tags:["research","climate","forests"],url:"wri.org/news"},
+  {name:"Carbon Brief",cat:"env",desc:"Data-driven climate science, policy, and energy analysis.",tags:["data","climate science","policy"],url:"carbonbrief.org"},
+  {name:"DeSmog",cat:"env",desc:"Tracking climate misinformation, fossil fuel lobbying, and denial.",tags:["misinformation","fossil fuel","denial"],url:"desmog.com"},
+  {name:"Treehugger",cat:"env",desc:"Sustainable living, green design, and environmental news.",tags:["sustainable","design","lifestyle"],url:"treehugger.com"},
+  {name:"Bloomberg Green",cat:"env",desc:"Bloomberg's climate and clean energy section.",tags:["Bloomberg","climate","clean energy"],url:"bloomberg.com/green"},
+  {name:"GreenBiz",cat:"env",desc:"Sustainable business and green economy news for professionals.",tags:["business","sustainable","professional"],url:"greenbiz.com"},
+  {name:"Forbes",cat:"biz",desc:"Business, finance, and technology rankings and journalism.",tags:["rankings","finance","tech"],url:"forbes.com"},
+  {name:"Harvard Business Review",cat:"biz",desc:"Management, strategy, and leadership with tech industry focus.",tags:["management","strategy","leadership"],url:"hbr.org"},
+  {name:"Fortune",cat:"biz",desc:"Business strategy, executive profiles, and industry rankings.",tags:["strategy","executives","rankings"],url:"fortune.com"},
+  {name:"Business Insider",cat:"biz",desc:"Accessible business and tech news — trends and disruption.",tags:["trends","disruption","accessible"],url:"businessinsider.com"},
+  {name:"MarketWatch",cat:"biz",desc:"Stock market, financial news, and economic data.",tags:["stocks","markets","economics"],url:"marketwatch.com"},
+  {name:"Barron's",cat:"biz",desc:"Investment news, stock analysis, and portfolio advice.",tags:["investment","stocks","analysis"],url:"barrons.com"},
+  {name:"Investopedia",cat:"biz",desc:"Financial education, news, and market analysis.",tags:["education","finance","markets"],url:"investopedia.com"},
+  {name:"Seeking Alpha",cat:"biz",desc:"Crowdsourced investment research and stock market analysis.",tags:["investment","crowdsourced","stocks"],url:"seekingalpha.com"},
+  {name:"Motley Fool",cat:"biz",desc:"Stock picks, investment advice, and financial news.",tags:["stocks","investment","advice"],url:"fool.com"},
+  {name:"Businessweek",cat:"biz",desc:"Bloomberg's business magazine with deep company reporting.",tags:["Bloomberg","companies","deep dives"],url:"bloomberg.com/businessweek"},
+  {name:"Entrepreneur",cat:"biz",desc:"Entrepreneurship, small business, and startup news.",tags:["entrepreneurship","startups","SMB"],url:"entrepreneur.com"},
+  {name:"Inc. Magazine",cat:"biz",desc:"Entrepreneurship and startup ecosystem coverage.",tags:["startups","founders","SMB"],url:"inc.com"},
+  {name:"Quartz",cat:"biz",desc:"Global business news with a digital-native approach.",tags:["global","digital","modern"],url:"qz.com"},
+  {name:"Nikkei Asia",cat:"biz",desc:"Asian business, technology, and politics from Japan's leading financial paper.",tags:["Japan","Asia","business"],url:"asia.nikkei.com"},
+  {name:"Euromoney",cat:"biz",desc:"Global financial markets, banking, and capital markets news.",tags:["banking","capital markets","global"],url:"euromoney.com"},
+  {name:"Scientific American",cat:"sci",desc:"Accessible science covering health, environment, and technology.",tags:["health","environment","accessible"],url:"scientificamerican.com"},
+  {name:"Nature",cat:"sci",desc:"World's top science journal with research and news sections.",tags:["research","journal","climate"],url:"nature.com"},
+  {name:"Science Magazine",cat:"sci",desc:"AAAS flagship journal — research news and scientific discoveries.",tags:["AAAS","research","discoveries"],url:"science.org"},
+  {name:"New Scientist",cat:"sci",desc:"Accessible science journalism covering space, health, biology, AI.",tags:["space","health","biology"],url:"newscientist.com"},
+  {name:"Popular Science",cat:"sci",desc:"Science and technology news for general audiences.",tags:["general","curiosity","technology"],url:"popsci.com"},
+  {name:"Space.com",cat:"sci",desc:"Space exploration, astronomy, rockets, and satellite news.",tags:["NASA","SpaceX","astronomy"],url:"space.com"},
+  {name:"Astronomy Magazine",cat:"sci",desc:"Amateur and professional astronomy news and sky events.",tags:["astronomy","sky","events"],url:"astronomy.com"},
+  {name:"Phys.org",cat:"sci",desc:"Physics, astronomy, chemistry, and technology from research labs.",tags:["physics","astronomy","chemistry"],url:"phys.org"},
+  {name:"Live Science",cat:"sci",desc:"Science news — health, technology, animals, and space.",tags:["health","animals","space"],url:"livescience.com"},
+  {name:"Science Daily",cat:"sci",desc:"Aggregated breaking science news from research institutions.",tags:["aggregator","research","daily"],url:"sciencedaily.com"},
+  {name:"Cosmos Magazine",cat:"sci",desc:"Australian science journalism with broad global science coverage.",tags:["Australia","global","broad"],url:"cosmosmagazine.com"},
+  {name:"The Conversation (Science)",cat:"sci",desc:"Academic researchers writing accessible science journalism.",tags:["academic","accessible","expert"],url:"theconversation.com"},
+  {name:"Smithsonian Magazine",cat:"sci",desc:"Science, history, culture, and innovation journalism.",tags:["history","culture","innovation"],url:"smithsonianmag.com"},
+  {name:"National Geographic Science",cat:"sci",desc:"Science storytelling with photography from NatGeo.",tags:["photography","storytelling","exploration"],url:"nationalgeographic.com/science"},
+  {name:"NASA News",cat:"sci",desc:"Official NASA mission updates, research, and space news.",tags:["NASA","official","missions"],url:"nasa.gov/news"},
+  {name:"ESA News",cat:"sci",desc:"European Space Agency missions, research, and launch news.",tags:["ESA","Europe","missions"],url:"esa.int/Newsroom"},
+  {name:"SpaceNews",cat:"sci",desc:"Space industry business — launches, satellites, and policy.",tags:["industry","satellites","policy"],url:"spacenews.com"},
+  {name:"Futurism",cat:"sci",desc:"Science and technology news focused on the future.",tags:["future","technology","science"],url:"futurism.com"},
+  {name:"Big Think",cat:"sci",desc:"Ideas, science, and technology with expert contributors.",tags:["ideas","experts","technology"],url:"bigthink.com"},
+  {name:"Quanta Magazine",cat:"sci",desc:"Mathematics, physics, biology, and computer science journalism.",tags:["math","physics","biology"],url:"quantamagazine.org"},
+  {name:"Product Hunt",cat:"start",desc:"Daily product launches and startup discovery platform.",tags:["products","launches","discovery"],url:"producthunt.com"},
+  {name:"Hacker News (YC)",cat:"start",desc:"Y Combinator's community tech and startup links.",tags:["YC","community","startups"],url:"news.ycombinator.com"},
+  {name:"Crunchbase News",cat:"start",desc:"Startup funding rounds, acquisitions, and company data.",tags:["funding","acquisitions","data"],url:"news.crunchbase.com"},
+  {name:"PitchBook",cat:"start",desc:"Venture capital, private equity, and M&A deal data.",tags:["VC","PE","M&A"],url:"pitchbook.com"},
+  {name:"Sifted",cat:"start",desc:"European startup and VC news.",tags:["Europe","VC","startups"],url:"sifted.eu"},
+  {name:"EU Startups",cat:"start",desc:"Funding news, interviews, and ecosystem updates from European startups.",tags:["Europe","funding","ecosystem"],url:"eu-startups.com"},
+  {name:"Tech.eu",cat:"start",desc:"European technology and startup news.",tags:["Europe","tech","startups"],url:"tech.eu"},
+  {name:"Dealroom.co",cat:"start",desc:"European startup and investor data platform.",tags:["Europe","investor","data"],url:"dealroom.co"},
+  {name:"SaaStr",cat:"start",desc:"SaaS business metrics, growth, and community content.",tags:["SaaS","growth","community"],url:"saastr.com"},
+  {name:"Google News",cat:"agg",desc:"Personalized news aggregator from Google — all categories.",tags:["aggregator","personalized","all"],url:"news.google.com"},
+  {name:"Apple News",cat:"agg",desc:"Curated news and Apple News+ magazine subscriptions.",tags:["Apple","curated","magazines"],url:"apple.com/apple-news"},
+  {name:"Flipboard",cat:"agg",desc:"Curated magazine-style news aggregator for all topics.",tags:["magazine","curated","all topics"],url:"flipboard.com"},
+  {name:"Feedly",cat:"agg",desc:"RSS aggregator — subscribe to any news source in one feed.",tags:["RSS","subscribe","all sources"],url:"feedly.com"},
+  {name:"Inoreader",cat:"agg",desc:"Advanced RSS reader with filters and automation.",tags:["RSS","filters","automation"],url:"inoreader.com"},
+  {name:"SmartNews",cat:"agg",desc:"AI-powered news aggregator for mobile — fast and concise.",tags:["AI","mobile","concise"],url:"smartnews.com"},
+  {name:"NewsNow",cat:"agg",desc:"Real-time news aggregator across topics and regions.",tags:["real-time","topics","regions"],url:"newsnow.co.uk"},
+  {name:"Yahoo News",cat:"agg",desc:"News aggregator with broad general and financial coverage.",tags:["general","finance","aggregator"],url:"news.yahoo.com"},
+  {name:"Techmeme",cat:"agg",desc:"Tech news river — top tech stories ranked by media coverage.",tags:["tech","ranked","river"],url:"techmeme.com"},
+  {name:"Ground News",cat:"agg",desc:"News with political bias ratings — see all perspectives.",tags:["bias","perspectives","balanced"],url:"ground.news"},
+  {name:"AllSides",cat:"agg",desc:"Balanced news — left, center, and right side by side.",tags:["balanced","left","right"],url:"allsides.com"},
+  {name:"Reddit Tech Communities",cat:"agg",desc:"r/technology, r/worldnews, r/cybersecurity, r/Futurology.",tags:["community","discussion","Reddit"],url:"reddit.com"},
+  {name:"Substack Tech",cat:"agg",desc:"Independent tech newsletters from journalists and analysts.",tags:["newsletters","independent","analysts"],url:"substack.com"},
+  {name:"TLDR Newsletter",cat:"agg",desc:"Daily email digests: TLDR Tech, TLDR AI, TLDR Security.",tags:["daily","email","digest"],url:"tldr.tech"},
+  {name:"Morning Brew",cat:"agg",desc:"Business and tech daily email newsletter.",tags:["daily","email","business"],url:"morningbrew.com"},
+  {name:"Stratechery",cat:"agg",desc:"Deep tech strategy and business analysis by Ben Thompson.",tags:["strategy","analysis","deep"],url:"stratechery.com"},
+  {name:"CB Insights",cat:"agg",desc:"Tech market intelligence — trends, funding, and forecasts.",tags:["market intel","trends","forecasts"],url:"cbinsights.com"},
+  {name:"Synced Review",cat:"sci",desc:"AI research news and paper summaries.",tags:["AI research","papers","summaries"],url:"syncedreview.com"},
+  {name:"BioSpace",cat:"health",desc:"Biotech and pharma industry jobs and news.",tags:["biotech","pharma","jobs"],url:"biospace.com"},
+  {name:"Fierce Biotech",cat:"health",desc:"Biotech funding, clinical results, and regulatory milestones.",tags:["biotech","funding","FDA"],url:"fiercebiotech.com"},
+  {name:"STAT News",cat:"health",desc:"Health and medicine journalism — drug approvals and public health.",tags:["pharma","biotech","public health"],url:"statnews.com"},
+  {name:"IEEE Spectrum",cat:"sci",desc:"Engineering and applied science for technical professionals.",tags:["robotics","chips","energy"],url:"spectrum.ieee.org"},
+  {name:"ACM TechNews",cat:"sci",desc:"Aggregated computing research news for the ACM community.",tags:["computing","research","ACM"],url:"technews.acm.org"},
+  {name:"Computerworld",cat:"tech",desc:"IT news, analysis, and trends for enterprise professionals.",tags:["IT","enterprise","analysis"],url:"computerworld.com"},
+  {name:"InfoWorld",cat:"tech",desc:"Software development, cloud, and enterprise tech news.",tags:["software","cloud","enterprise"],url:"infoworld.com"},
+  {name:"DevOps.com",cat:"tech",desc:"DevOps, CI/CD, and software delivery news and tutorials.",tags:["DevOps","CI/CD","software"],url:"devops.com"},
+  {name:"The Register",cat:"tech",desc:"UK tech news with sharp wit — enterprise IT, cloud, and chips.",tags:["UK","enterprise","cloud"],url:"theregister.com"},
+  {name:"CRN",cat:"tech",desc:"Channel, AI, and enterprise tech business news.",tags:["channel","AI","enterprise"],url:"crn.com"},
+  {name:"eWeek",cat:"tech",desc:"Enterprise technology news — cloud, security, and software.",tags:["enterprise","cloud","security"],url:"eweek.com"},
+  {name:"SDxCentral",cat:"tech",desc:"Software-defined networking, 5G, and cloud industry news.",tags:["5G","networking","cloud"],url:"sdxcentral.com"},
+  {name:"arXiv",cat:"sci",desc:"Open-access research preprints — AI, physics, biology, and more.",tags:["preprints","AI","physics"],url:"arxiv.org"},
+  {name:"Singularity Hub",cat:"sci",desc:"Exponential tech — AI, biotech, robotics, and the future.",tags:["AI","biotech","robotics"],url:"singularityhub.com"},
+  {name:"Deloitte Tech Trends",cat:"biz",desc:"Annual technology trends report from Deloitte Insights.",tags:["trends","annual","enterprise"],url:"deloitte.com/insights"},
+  {name:"Gartner News",cat:"biz",desc:"Enterprise IT research, hype cycles, and market forecasts.",tags:["IT","hype cycle","forecasts"],url:"gartner.com/en/newsroom"},
+  {name:"World Economic Forum Tech",cat:"world",desc:"Global tech governance, AI policy, and future of work from Davos.",tags:["governance","AI","Davos"],url:"weforum.org/agenda/technology"},
+  {name:"McKinsey Insights",cat:"biz",desc:"Management consulting research on technology and industry trends.",tags:["consulting","research","trends"],url:"mckinsey.com/insights"},
+  {name:"CNBC Disruptor 50",cat:"biz",desc:"Annual list of most disruptive private companies and startups.",tags:["disruptive","startups","annual"],url:"cnbc.com/disruptor-50"},
+  {name:"Bluesky / Mastodon",cat:"agg",desc:"Decentralized social platforms for real-time tech and world news.",tags:["decentralized","social","real-time"],url:"bsky.app"},
+  {name:"YouTube Tech Channels",cat:"agg",desc:"MKBHD, Linus Tech Tips, Veritasium, Kurzgesagt, Wendover.",tags:["video","YouTube","popular"],url:"youtube.com"},
+  {name:"Inverse",cat:"sci",desc:"Science and technology news with a futuristic angle.",tags:["future","science","tech"],url:"inverse.com"},
+  {name:"Politico",cat:"world",desc:"US and European political and regulatory news affecting tech.",tags:["policy","government","EU"],url:"politico.com"},
+  {name:"Foreign Affairs",cat:"world",desc:"Scholarly international relations and foreign policy from the CFR.",tags:["CFR","international","policy"],url:"foreignaffairs.com"},
+  {name:"Foreign Policy",cat:"world",desc:"Geopolitics, international security, and tech's role in global power.",tags:["geopolitics","security","power"],url:"foreignpolicy.com"},
+  {name:"The Independent",cat:"world",desc:"UK digital-first newspaper with global news coverage.",tags:["UK","digital","global"],url:"independent.co.uk"},
+  {name:"Sky News",cat:"world",desc:"UK-based 24-hour news channel with global reach.",tags:["UK","24-hour","global"],url:"news.sky.com"},
+  {name:"Xinhua",cat:"world",desc:"China's state newswire — useful for China's official perspective.",tags:["China","state media","official"],url:"xinhua.net"},
+  {name:"Fierce Healthcare",cat:"health",desc:"Healthcare industry covering hospitals, health IT, and biotech.",tags:["hospitals","health IT","biotech"],url:"fiercehealthcare.com"},
+  {name:"MobiHealthNews",cat:"health",desc:"Mobile health, wearables, telehealth, and digital health news.",tags:["wearables","telehealth","mobile"],url:"mobihealthnews.com"},
+  {name:"EE Times",cat:"tech",desc:"Electronics engineering, semiconductor, and embedded systems news.",tags:["electronics","semiconductors","embedded"],url:"eetimes.com"},
+  {name:"The Robot Report",cat:"tech",desc:"Robotics industry news — hardware, software, and market trends.",tags:["robotics","hardware","market"],url:"therobotreport.com"},
+  {name:"Decrypt",cat:"tech",desc:"Cryptocurrency, blockchain, Web3, and DeFi news.",tags:["crypto","blockchain","Web3"],url:"decrypt.co"},
+  {name:"CoinDesk",cat:"tech",desc:"Bitcoin, Ethereum, crypto markets, and blockchain industry.",tags:["Bitcoin","Ethereum","markets"],url:"coindesk.com"},
+  {name:"Proofpoint Security Awareness",cat:"cyber",desc:"Phishing, social engineering, and security awareness research.",tags:["phishing","social engineering","awareness"],url:"proofpoint.com/us/blog"},
+  {name:"Cyber Defense Magazine",cat:"cyber",desc:"Cybersecurity industry magazine with expert contributor articles.",tags:["industry","expert","magazine"],url:"cyberdefensemagazine.com"},
+  {name:"SEJournal",cat:"env",desc:"Society of Environmental Journalists — journalism and reporting resources.",tags:["journalism","SEJ","resources"],url:"sej.org"},
+  {name:"Earth Island Journal",cat:"env",desc:"Environmental activism, policy, and conservation journalism.",tags:["activism","policy","conservation"],url:"earthisland.org/journal"},
+  {name:"PwC Tech Trends",cat:"biz",desc:"Annual technology outlook and industry analysis from PwC.",tags:["annual","outlook","consulting"],url:"pwc.com/gx/en/issues/technology"},
+  {name:"Accenture Technology Vision",cat:"biz",desc:"Annual tech trends report and innovation research from Accenture.",tags:["annual","innovation","consulting"],url:"accenture.com/technology-trends"},
+  {name:"Lemmy",cat:"agg",desc:"Open-source decentralized community platform — tech and world news.",tags:["open-source","community","decentralized"],url:"lemmy.world"},
+  {name:"Medium Tech",cat:"agg",desc:"Tech articles and essays from developers, founders, and analysts.",tags:["articles","developers","essays"],url:"medium.com/technology"},
+  {name:"LinkedIn News",cat:"agg",desc:"Professional news and industry insights on LinkedIn.",tags:["professional","industry","LinkedIn"],url:"linkedin.com/news"},
+  {name:"The Rundown AI",cat:"agg",desc:"Daily AI news briefing newsletter.",tags:["AI","daily","newsletter"],url:"therundown.ai"},
+  {name:"Techpresso",cat:"agg",desc:"Concise daily tech newsletter for busy professionals.",tags:["concise","daily","professionals"],url:"techpresso.io"},
+  {name:"Benedict Evans",cat:"agg",desc:"Weekly tech strategy and analysis newsletter.",tags:["strategy","weekly","analysis"],url:"ben-evans.com"},
+  {name:"Kagi News",cat:"agg",desc:"Privacy-first news aggregator without ads or tracking.",tags:["privacy","no-ads","aggregator"],url:"kagi.com/news"},
+];
+
+const CATS=[
+  {k:"all",l:"All"},
+  {k:"world",l:"World"},
+  {k:"tech",l:"Tech"},
+  {k:"cyber",l:"Cybersecurity"},
+  {k:"env",l:"Environment"},
+  {k:"biz",l:"Business"},
+  {k:"sci",l:"Science"},
+  {k:"start",l:"Startups"},
+  {k:"health",l:"Health"},
+  {k:"agg",l:"Aggregators"},
+];
+const BL={world:"b-world",tech:"b-tech",cyber:"b-cyber",env:"b-env",biz:"b-biz",sci:"b-sci",start:"b-start",health:"b-health",agg:"b-agg"};
+const BN={world:"World",tech:"Tech",cyber:"Cyber",env:"Environment",biz:"Business",sci:"Science",start:"Startups",health:"Health",agg:"Aggregator"};
+const PER=24;
+let cat="all",pg=0;
+
+function getFilt(){
+  const q=document.getElementById("q").value.toLowerCase().trim();
+  return D.filter(p=>{
+    const mc=cat==="all"||p.cat===cat;
+    const mq=!q||p.name.toLowerCase().includes(q)||p.desc.toLowerCase().includes(q)||p.tags.some(t=>t.toLowerCase().includes(q));
+    return mc&&mq;
+  });
+}
+
+function renderFilters(){
+  const el=document.getElementById("fbar");el.innerHTML="";
+  CATS.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="chip"+(c.k===cat?" on":"");
+    const cnt=c.k==="all"?D.length:D.filter(p=>p.cat===c.k).length;
+    b.textContent=c.l+" ("+cnt+")";
+    b.onclick=()=>{cat=c.k;pg=0;go();};
+    el.appendChild(b);
+  });
+}
+
+function go(){
+  renderFilters();
+  const f=getFilt();
+  const s=pg*PER,sl=f.slice(s,s+PER);
+  document.getElementById("cnt").textContent=f.length+" unique platform"+(f.length!==1?"s":"")+(f.length>PER?" — showing "+(s+1)+"–"+Math.min(s+PER,f.length):"");
+  document.getElementById("stat").textContent=D.length+" total (dupes removed)";
+  if(!sl.length){document.getElementById("grid").innerHTML='<div class="empty">No platforms found.</div>';document.getElementById("pager").innerHTML="";return;}
+  document.getElementById("grid").innerHTML=sl.map(p=>`
+    <div class="card">
+      <div class="ct"><div class="cn">${p.name}</div><span class="badge ${BL[p.cat]||"b-agg"}">${BN[p.cat]||p.cat}</span></div>
+      <div class="cd">${p.desc}</div>
+      <div class="tags">${p.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+      <a class="cl" href="https://${p.url}" target="_blank">${p.url}</a>
+    </div>`).join("");
+  const pages=Math.ceil(f.length/PER);
+  let ph="";
+  if(pages>1){
+    if(pg>0)ph+=`<button class="pb" onclick="goPg(${pg-1})">← Prev</button>`;
+    for(let i=0;i<pages;i++)ph+=`<button class="pb${i===pg?" on":""}" onclick="goPg(${i})">${i+1}</button>`;
+    if(pg<pages-1)ph+=`<button class="pb" onclick="goPg(${pg+1})">Next →</button>`;
+  }
+  document.getElementById("pager").innerHTML=ph;
+}
+function goPg(p){pg=p;go();window.scrollTo(0,0);}
+go();
+</script>
