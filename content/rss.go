@@ -202,12 +202,28 @@ func Poll(seen *SeenStore, maxAge time.Duration, feedsFile, category string) ([]
 var htmlTagRe = regexp.MustCompile(`<[^>]+>`)
 
 func sanitize(s string) string {
-	s = htmlTagRe.ReplaceAllString(s, "")  // strip tags
-	s = html.UnescapeString(s)             // decode &amp; &lt; &#39; etc.
+	s = htmlTagRe.ReplaceAllString(s, "") // strip tags
+	s = html.UnescapeString(s)            // decode &amp; &lt; &#39; etc.
 	return strings.TrimSpace(s)
 }
 
-// Format builds a tweet string from an Article, guaranteed <= 280 chars
+// FormatHeadline builds a tweet with just the headline and source — no link.
+// Use this for the main tweet; post the link as a reply to avoid reach suppression.
+func FormatHeadline(a Article) string {
+	base := fmt.Sprintf("📰 %s\n\n%s", a.Title, a.FeedName)
+	if len(base) <= 280 {
+		return base
+	}
+	overhead := len(fmt.Sprintf("📰 ...\n\n%s", a.FeedName))
+	if overhead >= 280 {
+		return fmt.Sprintf("📰 %s", a.Title)[:280]
+	}
+	maxTitle := 280 - overhead
+	return fmt.Sprintf("📰 %s...\n\n%s", a.Title[:maxTitle], a.FeedName)
+}
+
+// Format builds a tweet string from an Article with link included, guaranteed <= 280 chars.
+// Kept for backwards compatibility; prefer FormatHeadline + a link reply for better reach.
 func Format(a Article) string {
 	base := fmt.Sprintf("📰 %s\n\n%s | %s", a.Title, a.FeedName, a.Link)
 	if len(base) <= 280 {

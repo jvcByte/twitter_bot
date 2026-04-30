@@ -8,7 +8,7 @@ on:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -32,27 +32,25 @@ jobs:
 
       - name: Run bot
         env:
-          # Secrets
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           IMGFLIP_USERNAME: ${{ secrets.IMGFLIP_USERNAME }}
           IMGFLIP_PASSWORD: ${{ secrets.IMGFLIP_PASSWORD }}
-          # Variables
           POST_MODE: ${{ vars.POST_MODE }}
           FEEDS_FILE: ${{ vars.FEEDS_FILE }}
           CATEGORY: ${{ vars.CATEGORY }}
           MAX_ARTICLE_AGE_HOURS: ${{ vars.MAX_ARTICLE_AGE_HOURS }}
           TWEET_DELAY_SECONDS: ${{ vars.TWEET_DELAY_SECONDS }}
           MAX_TWEETS_PER_RUN: ${{ vars.MAX_TWEETS_PER_RUN }}
-          RUN_ONCE: ${{vars.RUN_ONCE }}
+          RUN_ONCE: "true"
         run: go run main.go
 
-      - name: Upload screenshots on failure
-        if: failure()
+      - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots-${{ github.run_id }}
+          name: screenshots-${{ github.run_id }}
           path: "*.png"
           if-no-files-found: ignore
