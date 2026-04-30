@@ -85,21 +85,24 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 			break
 		}
 
-		post := content.Format(a)
+		// Post headline + image as the main tweet (no link = better reach)
+		headline := content.FormatHeadline(a)
 		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
 
-		// Try to attach article image
 		imgPath, err := content.DownloadImage(a.ImageURL)
 		if err != nil {
 			log.Printf("  image download failed: %v — posting text only", err)
 		}
 
-		var tweetErr error
+		var (
+			tweetURL string
+			tweetErr error
+		)
 		if imgPath != "" {
-			tweetErr = client.TweetWithMedia(post, imgPath)
+			tweetURL, tweetErr = client.TweetWithMedia(headline, imgPath)
 			os.Remove(imgPath)
 		} else {
-			tweetErr = client.Tweet(post)
+			tweetURL, tweetErr = client.Tweet(headline)
 		}
 
 		if tweetErr != nil {
@@ -110,6 +113,19 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		seen.Add(a.Link)
 		fmt.Println("  ✓ tweeted")
 		tweeted++
+
+		// Reply with the link — keeps it off the main tweet for reach,
+		// but still accessible and seeds the reply chain for algorithm boost.
+		if tweetURL != "" {
+			time.Sleep(3 * time.Second)
+			replyText := fmt.Sprintf("🔗 Full story: %s", a.Link)
+			if err := client.ReplyTo(tweetURL, replyText); err != nil {
+				log.Printf("  link reply failed: %v", err)
+			} else {
+				fmt.Println("  ✓ link reply posted")
+			}
+		}
+
 		time.Sleep(cfg.TweetDelay)
 	}
 }
@@ -117,6 +133,12 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config, headline string) {
 	if cfg.GroqAPIKey == "" {
 		log.Printf("GROQ_API_KEY not set — skipping meme post")
+		return
+	}
+
+	// ~30% chance to post a full thread instead of a single tweet
+	if rand.Intn(10) < 3 {
+		runThread(client, cfg, headline)
 		return
 	}
 
@@ -128,8 +150,6 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 
 	fmt.Printf("→ [AI meme] %s\n", post)
 
-	// Try to generate a meme image via Imgflip
-	// Split post roughly in half for top/bottom text
 	top, bottom := splitMemeText(post)
 	imgPath, err := content.GenerateMemeImage(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
 	if err != nil {
@@ -138,10 +158,10 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 
 	var tweetErr error
 	if imgPath != "" {
-		tweetErr = client.TweetWithMedia(post, imgPath)
+		_, tweetErr = client.TweetWithMedia(post, imgPath)
 		os.Remove(imgPath)
 	} else {
-		tweetErr = client.Tweet(post)
+		_, tweetErr = client.Tweet(post)
 	}
 
 	if tweetErr != nil {
@@ -151,13 +171,38 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 	fmt.Println("  ✓ tweeted")
 }
 
+// runThread generates and posts a multi-tweet thread via Groq.
+func runThread(client *twitter.Client, cfg *config.Config, topic string) {
+	tweets, err := content.GenerateThread(cfg.GroqAPIKey, topic)
+	if err != nil {
+		log.Printf("thread generation failed: %v — falling back to single post", err)
+		// Fall back to single meme post
+		post, err := content.GenerateMemePost(cfg.GroqAPIKey, topic)
+		if err != nil {
+			log.Printf("fallback meme failed: %v", err)
+			return
+		}
+		if _, err := client.Tweet(post); err != nil {
+			log.Printf("tweet failed: %v", err)
+		}
+		return
+	}
+
+	fmt.Printf("→ [AI thread] %d tweets | %s\n", len(tweets), tweets[0])
+
+	if _, err := client.Thread(tweets, ""); err != nil {
+		log.Printf("thread post failed: %v", err)
+		return
+	}
+	fmt.Println("  ✓ thread posted")
+}
+
 // splitMemeText splits a post into top/bottom text for meme templates
 func splitMemeText(post string) (string, string) {
 	lines := strings.SplitN(post, "\n", 2)
 	if len(lines) == 2 {
 		return strings.TrimSpace(lines[0]), strings.TrimSpace(lines[1])
 	}
-	// Split at midpoint word boundary
 	words := strings.Fields(post)
 	if len(words) <= 2 {
 		return post, ""
@@ -167,7 +212,6 @@ func splitMemeText(post string) (string, string) {
 }
 
 func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {
-	// Fetch news articles first — we'll use the top headline for reaction posts
 	articles, err := content.Poll(seen, cfg.MaxArticleAge, cfg.FeedsFile, cfg.Category)
 	if err != nil {
 		log.Printf("poll error: %v", err)
@@ -187,17 +231,18 @@ func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Confi
 
 		// Insert one meme/humor post roughly in the middle of the run
 		if !memeInserted && tweeted == cfg.MaxTweetsPerRun/2 {
-			headline := a.Title // use current headline for reaction format
-			runMeme(client, seen, cfg, headline)
+			runMeme(client, seen, cfg, a.Title)
 			memeInserted = true
 			time.Sleep(cfg.TweetDelay)
 			continue
 		}
 
-		post := content.Format(a)
+		// Post headline without link for reach; reply with link
+		headline := content.FormatHeadline(a)
 		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
 
-		if err := client.Tweet(post); err != nil {
+		tweetURL, err := client.Tweet(headline)
+		if err != nil {
 			log.Printf("tweet failed: %v", err)
 			continue
 		}
@@ -205,6 +250,16 @@ func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Confi
 		seen.Add(a.Link)
 		fmt.Println("  ✓ tweeted")
 		tweeted++
+
+		if tweetURL != "" {
+			time.Sleep(3 * time.Second)
+			replyText := fmt.Sprintf("🔗 Full story: %s", a.Link)
+			if err := client.ReplyTo(tweetURL, replyText); err != nil {
+				log.Printf("  link reply failed: %v", err)
+			} else {
+				fmt.Println("  ✓ link reply posted")
+			}
+		}
 
 		// Occasionally inject a standalone meme between news posts
 		if !memeInserted && tweeted > 0 && rand.Intn(3) == 0 {

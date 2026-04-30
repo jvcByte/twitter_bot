@@ -35,34 +35,221 @@ func NewClient(username, password, _, _ string) *Client {
 	return &Client{username: username, password: password}
 }
 
-// Tweet posts a text-only tweet
-func (c *Client) Tweet(message string) error {
-	return c.tweet(message, "")
+// Tweet posts a text-only tweet and returns the URL of the posted tweet.
+func (c *Client) Tweet(message string) (string, error) {
+	return c.tweetNew(message, "")
 }
 
-// TweetWithMedia posts a tweet with an attached image
-func (c *Client) TweetWithMedia(message, imagePath string) error {
+// TweetWithMedia posts a tweet with an attached image and returns the tweet URL.
+func (c *Client) TweetWithMedia(message, imagePath string) (string, error) {
 	abs, err := filepath.Abs(imagePath)
 	if err != nil {
-		return fmt.Errorf("failed to resolve image path: %w", err)
+		return "", fmt.Errorf("failed to resolve image path: %w", err)
 	}
 	if _, err := os.Stat(abs); err != nil {
-		return fmt.Errorf("image not found at %s: %w", abs, err)
+		return "", fmt.Errorf("image not found at %s: %w", abs, err)
 	}
-	return c.tweet(message, abs)
+	return c.tweetNew(message, abs)
 }
 
-// tweet is the shared implementation — imagePath is empty for text-only posts
-func (c *Client) tweet(message, imagePath string) error {
+// ReplyTo posts a reply to an existing tweet identified by tweetURL.
+func (c *Client) ReplyTo(tweetURL, message string) error {
 	if len(message) > 280 {
-		return fmt.Errorf("tweet exceeds 280 characters: %d", len(message))
+		return fmt.Errorf("reply exceeds 280 characters: %d", len(message))
+	}
+
+	fmt.Println("Launching browser for reply...")
+
+	browser, page, err := c.launchSession()
+	if err != nil {
+		return err
+	}
+	defer browser.MustClose()
+
+	// Navigate to the tweet page
+	page.MustNavigate(tweetURL)
+	page.MustWaitLoad()
+	time.Sleep(3 * time.Second)
+
+	// Click the reply button on the tweet
+	replyBtn, err := page.Timeout(timeout).Element(`[data-testid="reply"]`)
+	if err != nil {
+		page.MustScreenshot("debug_reply.png")
+		return fmt.Errorf("reply button not found: %w", err)
+	}
+	replyBtn.MustEval(`() => this.click()`)
+	time.Sleep(2 * time.Second)
+
+	replyBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
+	if err != nil {
+		page.MustScreenshot("debug_reply.png")
+		return fmt.Errorf("reply composer not found: %w", err)
+	}
+	replyBox.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+
+	if err := page.InsertText(message); err != nil {
+		return fmt.Errorf("failed to type reply: %w", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]`)
+	if err != nil {
+		page.MustScreenshot("debug_reply.png")
+		return fmt.Errorf("reply submit button not found: %w", err)
+	}
+	submitBtn.MustEval(`() => this.click()`)
+	time.Sleep(4 * time.Second)
+
+	// Check for error toast
+	if errMsg, _ := page.Timeout(3 * time.Second).Element(`[data-testid="toast"]`); errMsg != nil {
+		text, _ := errMsg.Text()
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "already said") ||
+			strings.Contains(lower, "something went wrong") ||
+			strings.Contains(lower, "try again") ||
+			strings.Contains(lower, "limit") {
+			return fmt.Errorf("twitter rejected reply: %s", text)
+		}
+	}
+
+	fmt.Println("Reply posted!")
+	return nil
+}
+
+// Thread posts a sequence of tweets as a thread using the "Add to thread" UI.
+// tweets[0] is the opening tweet; the rest are added as replies in the same composer.
+// Returns the URL of the first tweet.
+func (c *Client) Thread(tweets []string, imagePath string) (string, error) {
+	if len(tweets) == 0 {
+		return "", fmt.Errorf("no tweets provided")
+	}
+	for i, t := range tweets {
+		if len(t) > 280 {
+			return "", fmt.Errorf("tweet %d exceeds 280 characters: %d", i+1, len(t))
+		}
+	}
+
+	fmt.Println("Launching browser for thread...")
+
+	browser, page, err := c.launchSession()
+	if err != nil {
+		return "", err
+	}
+	defer browser.MustClose()
+
+	fmt.Println("Session valid, composing thread...")
+
+	newTweetBtn, err := page.Timeout(timeout).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+	if err != nil {
+		page.MustScreenshot("debug_compose.png")
+		return "", fmt.Errorf("new tweet button not found: %w", err)
+	}
+	newTweetBtn.MustEval(`() => this.click()`)
+	time.Sleep(3 * time.Second)
+
+	// Attach image to first tweet if provided
+	if imagePath != "" {
+		abs, err := filepath.Abs(imagePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve image path: %w", err)
+		}
+		fileInput, err := page.Timeout(timeout).Element(`input[data-testid="fileInput"]`)
+		if err != nil {
+			page.MustScreenshot("debug_compose.png")
+			return "", fmt.Errorf("media upload input not found: %w", err)
+		}
+		if err := fileInput.SetFiles([]string{abs}); err != nil {
+			return "", fmt.Errorf("failed to attach image: %w", err)
+		}
+		c.waitForMediaUpload(page)
+	}
+
+	// Type first tweet
+	if err := c.typeIntoTextarea(page, `[data-testid="tweetTextarea_0"]`, tweets[0]); err != nil {
+		return "", err
+	}
+	time.Sleep(2 * time.Second)
+
+	// Add subsequent tweets via "Add to thread" button
+	for i := 1; i < len(tweets); i++ {
+		var addBtn *rod.Element
+		for _, sel := range []string{
+			`[data-testid="addButton"]`,
+			`[aria-label="Add"]`,
+		} {
+			el, err := page.Timeout(10 * time.Second).Element(sel)
+			if err == nil {
+				addBtn = el
+				break
+			}
+		}
+		if addBtn == nil {
+			page.MustScreenshot("debug_thread.png")
+			return "", fmt.Errorf("add-to-thread button not found at tweet %d", i+1)
+		}
+		addBtn.MustEval(`() => this.click()`)
+		time.Sleep(2 * time.Second)
+
+		// After clicking Add, focus moves to the last textarea in the composer.
+		// Get all textareas and type into the last one.
+		textareas, err := page.Timeout(timeout).Elements(`[data-testid^="tweetTextarea_"]`)
+		if err != nil || len(textareas) == 0 {
+			page.MustScreenshot("debug_thread.png")
+			return "", fmt.Errorf("tweet %d: no textarea found after add", i+1)
+		}
+		last := textareas[len(textareas)-1]
+		last.MustEval(`() => this.focus()`)
+		time.Sleep(300 * time.Millisecond)
+		if err := page.InsertText(tweets[i]); err != nil {
+			return "", fmt.Errorf("tweet %d: failed to type: %w", i+1, err)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	page.MustScreenshot("debug_typed.png")
+
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]`)
+	if err != nil {
+		page.MustScreenshot("debug_compose.png")
+		return "", fmt.Errorf("thread submit button not found: %w", err)
+	}
+	submitBtn.MustEval(`() => this.click()`)
+	time.Sleep(5 * time.Second)
+
+	page.MustScreenshot("tweet_confirmation.png")
+
+	// Check for error toast
+	if errMsg, _ := page.Timeout(3 * time.Second).Element(`[data-testid="toast"]`); errMsg != nil {
+		text, _ := errMsg.Text()
+		lower := strings.ToLower(text)
+		if strings.Contains(lower, "already said") ||
+			strings.Contains(lower, "something went wrong") ||
+			strings.Contains(lower, "try again") ||
+			strings.Contains(lower, "limit") {
+			return "", fmt.Errorf("twitter rejected thread: %s", text)
+		}
+	}
+
+	tweetURL := c.extractPostedTweetURL(page)
+	fmt.Printf("Thread posted! (%d tweets)\n", len(tweets))
+	fmt.Println("Screenshot saved to tweet_confirmation.png")
+	fmt.Println(strings.Repeat("=", 60))
+	return tweetURL, nil
+}
+
+// tweetNew is the shared implementation for single tweets — imagePath is empty for text-only posts.
+// Returns the URL of the posted tweet.
+func (c *Client) tweetNew(message, imagePath string) (string, error) {
+	if len(message) > 280 {
+		return "", fmt.Errorf("tweet exceeds 280 characters: %d", len(message))
 	}
 
 	fmt.Println("Launching browser...")
 
 	browser, page, err := c.launchSession()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer browser.MustClose()
 
@@ -71,7 +258,7 @@ func (c *Client) tweet(message, imagePath string) error {
 	newTweetBtn, err := page.Timeout(timeout).Element(`[data-testid="SideNav_NewTweet_Button"]`)
 	if err != nil {
 		page.MustScreenshot("debug_compose.png")
-		return fmt.Errorf("new tweet button not found: %w", err)
+		return "", fmt.Errorf("new tweet button not found: %w", err)
 	}
 	newTweetBtn.MustEval(`() => this.click()`)
 	time.Sleep(3 * time.Second)
@@ -81,33 +268,25 @@ func (c *Client) tweet(message, imagePath string) error {
 		fileInput, err := page.Timeout(timeout).Element(`input[data-testid="fileInput"]`)
 		if err != nil {
 			page.MustScreenshot("debug_compose.png")
-			return fmt.Errorf("media upload input not found: %w", err)
+			return "", fmt.Errorf("media upload input not found: %w", err)
 		}
 		if err := fileInput.SetFiles([]string{imagePath}); err != nil {
-			return fmt.Errorf("failed to attach image: %w", err)
+			return "", fmt.Errorf("failed to attach image: %w", err)
 		}
-		// Wait for upload to complete
-		time.Sleep(4 * time.Second)
+		c.waitForMediaUpload(page)
 	}
 
-	tweetBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
-	if err != nil {
-		page.MustScreenshot("debug_compose.png")
-		return fmt.Errorf("tweet composer not found: %w", err)
+	if err := c.typeIntoTextarea(page, `[data-testid="tweetTextarea_0"]`, message); err != nil {
+		return "", err
 	}
-	tweetBox.MustEval(`() => this.focus()`)
-	time.Sleep(300 * time.Millisecond)
 
-	if err := page.InsertText(message); err != nil {
-		return fmt.Errorf("failed to type message: %w", err)
-	}
-	time.Sleep(1 * time.Second)
 	page.MustScreenshot("debug_typed.png")
 
-	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]`)
+	// Wait for the tweet button to be enabled before clicking
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
 	if err != nil {
 		page.MustScreenshot("debug_compose.png")
-		return fmt.Errorf("tweet submit button not found: %w", err)
+		return "", fmt.Errorf("tweet submit button not found or still disabled: %w", err)
 	}
 	submitBtn.MustEval(`() => this.click()`)
 	time.Sleep(4 * time.Second)
@@ -122,14 +301,65 @@ func (c *Client) tweet(message, imagePath string) error {
 			strings.Contains(lower, "something went wrong") ||
 			strings.Contains(lower, "try again") ||
 			strings.Contains(lower, "limit") {
-			return fmt.Errorf("twitter rejected tweet: %s", text)
+			return "", fmt.Errorf("twitter rejected tweet: %s", text)
 		}
 	}
 
+	tweetURL := c.extractPostedTweetURL(page)
 	fmt.Println("Tweet posted!")
 	fmt.Println("Screenshot saved to tweet_confirmation.png")
 	fmt.Println(strings.Repeat("=", 60))
+	return tweetURL, nil
+}
+
+// waitForMediaUpload waits until Twitter's media upload progress bar disappears,
+// indicating the upload is complete and the tweet button will be enabled.
+func (c *Client) waitForMediaUpload(page *rod.Page) {
+	// Wait up to 30s for the progress bar to appear then disappear
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(500 * time.Millisecond)
+		// Upload is done when there's no active progress indicator
+		uploading, _ := page.Elements(`[data-testid="attachments"] [role="progressbar"]`)
+		if len(uploading) == 0 {
+			// Also check the generic progress bar is gone
+			progress, _ := page.Elements(`[role="progressbar"]`)
+			if len(progress) == 0 {
+				break
+			}
+		}
+	}
+	// Small buffer after upload completes
+	time.Sleep(1 * time.Second)
+}
+func (c *Client) typeIntoTextarea(page *rod.Page, selector, text string) error {
+	box, err := page.Timeout(timeout).Element(selector)
+	if err != nil {
+		page.MustScreenshot("debug_compose.png")
+		return fmt.Errorf("textarea %q not found: %w", selector, err)
+	}
+	box.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+	if err := page.InsertText(text); err != nil {
+		return fmt.Errorf("failed to type into %q: %w", selector, err)
+	}
+	time.Sleep(500 * time.Millisecond)
 	return nil
+}
+
+// extractPostedTweetURL tries to read the current page URL after posting.
+// Returns empty string if it can't be determined.
+func (c *Client) extractPostedTweetURL(page *rod.Page) string {
+	info, err := page.Info()
+	if err != nil {
+		return ""
+	}
+	url := info.URL
+	// After posting, X sometimes navigates to the tweet permalink
+	if strings.Contains(url, "/status/") {
+		return url
+	}
+	return ""
 }
 
 // launchSession starts a browser, loads cookies, and verifies the session
