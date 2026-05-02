@@ -85,9 +85,10 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 			break
 		}
 
-		// Post headline + image as the main tweet (no link = better reach)
-		headline := content.FormatHeadline(a)
+		// Post AI-enhanced headline + image (no link = better reach)
+		headline := content.FetchAndEngage(a, cfg.GroqAPIKey)
 		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
+		fmt.Printf("  tweet: %s\n", headline)
 
 		imgPath, err := content.DownloadImage(a.ImageURL)
 		if err != nil {
@@ -119,7 +120,7 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		if tweetURL != "" {
 			time.Sleep(3 * time.Second)
 			replyText := fmt.Sprintf("🔗 Full story: %s", a.Link)
-			if err := client.ReplyTo(tweetURL, replyText); err != nil {
+			if _, err := client.ReplyTo(tweetURL, replyText); err != nil {
 				log.Printf("  link reply failed: %v", err)
 			} else {
 				fmt.Println("  ✓ link reply posted")
@@ -237,9 +238,10 @@ func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Confi
 			continue
 		}
 
-		// Post headline without link for reach; reply with link
-		headline := content.FormatHeadline(a)
+		// Post AI-enhanced headline + image (no link = better reach)
+		headline := content.FetchAndEngage(a, cfg.GroqAPIKey)
 		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
+		fmt.Printf("  tweet: %s\n", headline)
 
 		tweetURL, err := client.Tweet(headline)
 		if err != nil {
@@ -254,7 +256,7 @@ func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Confi
 		if tweetURL != "" {
 			time.Sleep(3 * time.Second)
 			replyText := fmt.Sprintf("🔗 Full story: %s", a.Link)
-			if err := client.ReplyTo(tweetURL, replyText); err != nil {
+			if _, err := client.ReplyTo(tweetURL, replyText); err != nil {
 				log.Printf("  link reply failed: %v", err)
 			} else {
 				fmt.Println("  ✓ link reply posted")
