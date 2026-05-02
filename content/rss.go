@@ -207,7 +207,98 @@ func sanitize(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// FormatHeadline builds a tweet with just the headline and source — no link.
+// FetchAndEngage fetches the article content and uses Groq to write an engaging
+// tweet with a hook, key insight, and opinion. Falls back to FormatHeadline if
+// the API key is empty or the request fails.
+func FetchAndEngage(a Article, groqAPIKey string) string {
+	if groqAPIKey == "" {
+		return FormatHeadline(a)
+	}
+
+	// Fetch article text (best-effort, short timeout)
+	articleText := fetchArticleText(a.Link)
+
+	var prompt string
+	if articleText != "" {
+		prompt = fmt.Sprintf(`You are a sharp, opinionated tech/news commentator on X (Twitter).
+
+Article title: %s
+Source: %s
+Article excerpt: %s
+
+Write ONE engaging tweet about this. Rules:
+- Start with a strong hook (surprising stat, bold claim, or provocative question)
+- Add 1-2 sentences of context or your take
+- End with an opinion, question, or call to action
+- Use 1-3 relevant emojis naturally
+- Max 260 chars. No hashtags. No "Read more". Just the tweet text.`, a.Title, a.FeedName, articleText)
+	} else {
+		prompt = fmt.Sprintf(`You are a sharp, opinionated tech/news commentator on X (Twitter).
+
+Article title: %s
+Source: %s
+
+Write ONE engaging tweet about this headline. Rules:
+- Start with a strong hook (surprising stat, bold claim, or provocative question)
+- Add your take or why this matters
+- End with an opinion or question to spark replies
+- Use 1-3 relevant emojis naturally
+- Max 260 chars. No hashtags. Just the tweet text.`, a.Title, a.FeedName)
+	}
+
+	result, err := callGroq(groqAPIKey, prompt, 150)
+	if err != nil {
+		return FormatHeadline(a)
+	}
+
+	post := strings.TrimSpace(strings.Trim(result, `"`))
+	if len(post) > 280 {
+		post = post[:277] + "..."
+	}
+	if post == "" {
+		return FormatHeadline(a)
+	}
+	return post
+}
+
+// fetchArticleText fetches a URL and extracts plain text content (best-effort).
+func fetchArticleText(url string) string {
+	client := &http.Client{Timeout: 8 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; NewsBot/1.0)")
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	// Read up to 32KB — enough for the article lede
+	buf := make([]byte, 32*1024)
+	n, _ := io.ReadAtLeast(resp.Body, buf, 1)
+	raw := string(buf[:n])
+
+	// Strip script/style blocks
+	scriptRe := regexp.MustCompile(`(?is)<(script|style)[^>]*>.*?</(script|style)>`)
+	raw = scriptRe.ReplaceAllString(raw, "")
+
+	// Strip all HTML tags
+	text := htmlTagRe.ReplaceAllString(raw, " ")
+	text = html.UnescapeString(text)
+
+	// Collapse whitespace
+	wsRe := regexp.MustCompile(`\s+`)
+	text = wsRe.ReplaceAllString(text, " ")
+	text = strings.TrimSpace(text)
+
+	// Return first 800 chars — enough context for Groq without burning tokens
+	if len(text) > 800 {
+		text = text[:800]
+	}
+	return text
+}
 // Use this for the main tweet; post the link as a reply to avoid reach suppression.
 func FormatHeadline(a Article) string {
 	base := fmt.Sprintf("📰 %s\n\n%s", a.Title, a.FeedName)
