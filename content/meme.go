@@ -191,11 +191,14 @@ func GenerateSelfComment(apiKey, postText string) string {
 	prompt := fmt.Sprintf(`You just posted this tweet:
 "%s"
 
-Write a short follow-up comment (1-2 sentences) to post as a reply to your own tweet.
-Style: add a personal take, a related fact, or ask a follow-up question to spark replies.
-Use 1-2 emojis. Max 200 chars. No hashtags. Just the comment text.`, postText)
+Write a SHORT follow-up comment (1 sentence) to reply to your own tweet.
+Rules:
+- Must be DIFFERENT in style from the original — if the tweet was a story, ask a question; if it was a question, add a fact; if it was a hot take, add a stat or example
+- Goal: spark replies from other people
+- Use 1 emoji max
+- Max 180 chars. No hashtags. Just the comment text.`, postText)
 
-	result, err := callGroq(apiKey, prompt, 80)
+	result, err := callGroq(apiKey, prompt, 60)
 	if err != nil {
 		return ""
 	}
@@ -334,11 +337,19 @@ var memeTemplates = []struct {
 	{"135256802", "Epic Handshake"},
 }
 
-// generateMemegenImage picks a random template and builds a memegen.link image URL,
-// then downloads it to a temp file.
+// generateMemegenImage picks a template based on the post text hash (not random)
+// so different posts consistently get different templates.
 func generateMemegenImage(text0, text1 string) (string, error) {
-	rand.Seed(time.Now().UnixNano())
-	tmpl := memegenTemplates[rand.Intn(len(memegenTemplates))]
+	// Use text hash to pick template — same text = same template, different text = different template
+	combined := text0 + text1
+	hash := 0
+	for _, c := range combined {
+		hash = hash*31 + int(c)
+	}
+	if hash < 0 {
+		hash = -hash
+	}
+	tmpl := memegenTemplates[hash%len(memegenTemplates)]
 
 	top := memegenEncode(text0)
 	bot := memegenEncode(text1)
