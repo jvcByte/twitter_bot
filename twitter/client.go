@@ -53,6 +53,90 @@ func (c *Client) TweetWithMedia(message, imagePath string) (string, error) {
 	return c.tweetNew(message, abs)
 }
 
+// SelfEngage likes, reposts, and comments on a tweet in a single browser session.
+// This boosts engagement velocity in the first few minutes after posting.
+// comment is optional — pass empty string to skip commenting.
+func (c *Client) SelfEngage(tweetURL, comment string) error {
+	if tweetURL == "" {
+		return fmt.Errorf("no tweet URL provided")
+	}
+
+	fmt.Println("Launching browser for self-engagement...")
+
+	browser, page, err := c.launchSession()
+	if err != nil {
+		return err
+	}
+	defer browser.MustClose()
+
+	page.MustNavigate(tweetURL)
+	page.MustWaitLoad()
+	time.Sleep(3 * time.Second)
+
+	// ── Like ──────────────────────────────────────────────────────────────────
+	likeBtn, err := page.Timeout(timeout).Element(`[data-testid="like"]`)
+	if err != nil {
+		log.Printf("  like button not found: %v", err)
+	} else {
+		likeBtn.MustEval(`() => this.click()`)
+		time.Sleep(1 * time.Second)
+		fmt.Println("  ✓ liked")
+	}
+
+	// ── Repost ────────────────────────────────────────────────────────────────
+	repostBtn, err := page.Timeout(timeout).Element(`[data-testid="retweet"]`)
+	if err != nil {
+		log.Printf("  repost button not found: %v", err)
+	} else {
+		repostBtn.MustEval(`() => this.click()`)
+		time.Sleep(1 * time.Second)
+		// Confirm the repost in the dropdown
+		confirmBtn, err := page.Timeout(5 * time.Second).Element(`[data-testid="retweetConfirm"]`)
+		if err != nil {
+			log.Printf("  repost confirm not found: %v", err)
+		} else {
+			confirmBtn.MustEval(`() => this.click()`)
+			time.Sleep(1 * time.Second)
+			fmt.Println("  ✓ reposted")
+		}
+	}
+
+	// ── Comment ───────────────────────────────────────────────────────────────
+	if comment != "" {
+		replyBtn, err := page.Timeout(timeout).Element(`[data-testid="reply"]`)
+		if err != nil {
+			log.Printf("  reply button not found: %v", err)
+		} else {
+			replyBtn.MustEval(`() => this.click()`)
+			time.Sleep(2 * time.Second)
+
+			replyBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
+			if err != nil {
+				log.Printf("  reply composer not found: %v", err)
+			} else {
+				replyBox.MustEval(`() => this.focus()`)
+				time.Sleep(300 * time.Millisecond)
+				if err := page.InsertText(comment); err != nil {
+					log.Printf("  failed to type comment: %v", err)
+				} else {
+					time.Sleep(1 * time.Second)
+					submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
+					if err != nil {
+						log.Printf("  comment submit not found: %v", err)
+					} else {
+						submitBtn.MustEval(`() => this.click()`)
+						time.Sleep(3 * time.Second)
+						fmt.Println("  ✓ commented")
+					}
+				}
+			}
+		}
+	}
+
+	fmt.Println("Self-engagement done!")
+	return nil
+}
+
 // ReplyTo posts a reply to an existing tweet and returns the URL of the new reply.
 func (c *Client) ReplyTo(tweetURL, message string) (string, error) {
 	if len(message) > 280 {
