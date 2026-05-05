@@ -167,14 +167,12 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 
 	fmt.Printf("→ [AI %s] %s\n", formatName, post)
 
-	// Text-only formats (polls, comparisons, community hooks) perform better without images
+	// Generate image for all post formats
 	var imgPath string
-	if !content.IsTextOnlyFormat(formatName) {
-		top, bottom := splitMemeText(post)
-		imgPath, err = content.GenerateMemeImageWithGroq(cfg.GroqAPIKey, cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
-		if err != nil {
-			log.Printf("  meme image failed: %v — posting text only", err)
-		}
+	top, bottom := splitMemeText(post)
+	imgPath, err = content.GenerateMemeImageWithGroq(cfg.GroqAPIKey, cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+	if err != nil {
+		log.Printf("  image failed: %v — posting text only", err)
 	}
 
 	var (
