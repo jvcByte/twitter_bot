@@ -451,11 +451,30 @@ func memegenEncode(s string) string {
 	return r.Replace(s)
 }
 
-// GenerateMemeImage creates a meme image using memegen.link (free, no auth required).
-// Falls back to Imgflip if memegen fails and credentials are available.
+// GenerateMemeImage creates a meme image for the given post text.
+// Priority: Pollinations.ai (AI-generated) → memegen.link → Imgflip
 func GenerateMemeImage(username, password, text0, text1 string) (string, error) {
-	// memegen.link — free, no credentials
-	path, err := generateMemegenImage(text0, text1)
+	return GenerateMemeImageWithGroq("", username, password, text0, text1)
+}
+
+// GenerateMemeImageWithGroq creates an image using Pollinations (with Groq prompt generation),
+// falling back to memegen.link then Imgflip.
+func GenerateMemeImageWithGroq(groqAPIKey, username, password, text0, text1 string) (string, error) {
+	fullText := text0
+	if text1 != "" {
+		fullText = text0 + " " + text1
+	}
+
+	// Pollinations.ai — free, unlimited, AI-generated contextual image
+	path, err := GeneratePollinationsImage(groqAPIKey, fullText)
+	if err != nil {
+		fmt.Printf("  pollinations failed: %v — falling back to memegen\n", err)
+	} else if path != "" {
+		return path, nil
+	}
+
+	// memegen.link — free, no auth
+	path, err = generateMemegenImage(text0, text1)
 	if err != nil {
 		fmt.Printf("  memegen failed: %v — falling back to imgflip\n", err)
 	} else if path != "" {
