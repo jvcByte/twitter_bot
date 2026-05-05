@@ -216,11 +216,21 @@ func runThread(client *twitter.Client, cfg *config.Config, topic string) {
 
 	fmt.Printf("→ [AI thread] %d tweets | %s\n", len(tweets), tweets[0])
 
-	if _, err := client.Thread(tweets, ""); err != nil {
+	threadURL, err := client.Thread(tweets, "")
+	if err != nil {
 		log.Printf("thread post failed: %v", err)
 		return
 	}
 	fmt.Println("  ✓ thread posted")
+
+	// Self-engage on the first tweet of the thread
+	if threadURL != "" {
+		time.Sleep(2 * time.Second)
+		comment := content.GenerateSelfComment(cfg.GroqAPIKey, tweets[0])
+		if err := client.SelfEngage(threadURL, comment); err != nil {
+			log.Printf("  self-engage failed: %v", err)
+		}
+	}
 }
 
 // splitMemeText splits a post into top/bottom text for meme templates
