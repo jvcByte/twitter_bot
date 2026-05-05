@@ -171,14 +171,24 @@ func (c *Client) ReplyTo(tweetURL, message string) (string, error) {
 		return "", fmt.Errorf("reply composer not found: %w", err)
 	}
 	replyBox.MustEval(`() => this.focus()`)
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
-	if err := page.InsertText(message); err != nil {
+	// Move cursor to end — the box may have a pre-filled @mention
+	page.MustEval(`() => {
+		const sel = window.getSelection();
+		const range = document.createRange();
+		const el = document.querySelector('[data-testid="tweetTextarea_0"]');
+		if (el) { range.selectNodeContents(el); range.collapse(false); sel.removeAllRanges(); sel.addRange(range); }
+	}`)
+	time.Sleep(200 * time.Millisecond)
+
+	// Add a newline first to push past any pre-filled mention
+	if err := page.InsertText("\n" + message); err != nil {
 		return "", fmt.Errorf("failed to type reply: %w", err)
 	}
 	time.Sleep(1 * time.Second)
 
-	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled]), [data-testid="tweetButtonInline"]:not([disabled])`)
 	if err != nil {
 		page.MustScreenshot("debug_reply.png")
 		return "", fmt.Errorf("reply submit button not found: %w", err)
