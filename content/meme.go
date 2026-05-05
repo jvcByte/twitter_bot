@@ -46,7 +46,7 @@ Monday deploys, or debugging at 3am. Use emojis. Max 240 chars. No hashtags. Jus
 	{
 		name: "hot_take",
 		prompt: `Write a single spicy tech hot take tweet starting with "Unpopular opinion:" or "Hot take:".
-Make it about software development, programming languages, tools, or tech culture.
+Make it about AI, cybersecurity, software development, or tech culture.
 Should be slightly controversial but not offensive. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
@@ -56,20 +56,54 @@ or "nobody: / developers:" format. About coding, debugging, meetings, deadlines,
 Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
-		name: "poll",
-		prompt: `Write a single engaging Twitter poll question for developers. Format:
-[Question]
+		name: "forced_choice_poll",
+		prompt: `Write a single "be honest, pick ONE" style tweet for developers. Format:
+[Topic]... be honest
 
-🅰️ [Option A]
-🅱️ [Option B]
+Pick ONE in 2026:
+[Option A]
+[Option B]
+[Option C]
+[Option D]
 
-Examples: tabs vs spaces, vim vs vscode, dark vs light mode, coffee vs tea while coding.
-Keep it fun. Max 240 chars. Just the tweet text.`,
+Drop your pick 👇
+
+Topics: AI tools (ChatGPT vs Claude vs Gemini vs Copilot), frontend frameworks, backend languages,
+cloud providers, editors, databases, security tools. Max 240 chars. No hashtags. Just the tweet text.`,
+	},
+	{
+		name: "comparison_question",
+		prompt: `Write a single "what's the difference between X and Y?" tweet that sparks discussion.
+Pick two things developers often confuse or debate: AI concepts, security terms, frameworks, patterns, tools.
+Examples: "What's the difference between authentication and authorization?",
+"What's the difference between AI and Machine Learning?",
+"What's the difference between a virus and malware?"
+Keep it short and punchy. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+	},
+	{
+		name: "community_hook",
+		prompt: `Write a single community-building tweet for tech/developer Twitter. Format:
+[Engaging opener about AI, security, or coding]
+
+Drop your [X] in the comments 👇
+[Simple call to action like "follow 3 people who reply" or "let's connect"]
+
+Make it feel warm and community-driven. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+	},
+	{
+		name: "ai_security_take",
+		prompt: `Write a single punchy tweet about AI or cybersecurity that will spark replies.
+Could be a warning, a surprising fact, a prediction, or a strong opinion.
+Examples: "AI is making phishing attacks 10x harder to detect 🚨",
+"The biggest security threat in 2026 isn't hackers — it's AI-generated social engineering",
+"Most developers don't know their AI tools are leaking their code to third parties"
+Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
 		name: "thread_starter",
-		prompt: `Write a single tweet that starts a thread with "Things nobody tells you about [tech topic] 🧵"
-or "X things I wish I knew before [tech thing]:". Make it feel like the start of a juicy thread.
+		prompt: `Write a single tweet that starts a thread about AI or cybersecurity with "🧵" at the end.
+Format: "X things [about AI/security topic] that will blow your mind 🧵" or
+"Nobody talks about [AI/security thing] but here's what you need to know 🧵"
 Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
@@ -80,28 +114,28 @@ Could be sarcastic, surprised, or humorous. Use emojis. Max 240 chars. No hashta
 	},
 	{
 		name: "question",
-		prompt: `Write a single open-ended question tweet for developers/tech people.
-Should spark debate or personal reflection. Examples: "What's the one thing you wish you knew before your first dev job?",
-"Which tech decision do you regret most?", "What's the most underrated skill in software engineering?"
+		prompt: `Write a single open-ended question tweet for developers/tech people focused on AI or security.
+Should spark debate. Examples: "Is AI making developers lazy or more productive?",
+"Should every developer learn cybersecurity basics?", "Will AI replace junior developers by 2027?"
 Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
 		name: "storytelling",
-		prompt: `Write a single tweet that opens a relatable developer story or confession.
-Format: start with "Story time:" or "True story:" or a hook like "I once spent 3 days debugging..."
-Make it feel personal, honest, and funny. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+		prompt: `Write a single tweet that opens a relatable developer story or confession about AI or security.
+Format: start with "Story time:" or "True story:" or a punchy hook.
+Make it feel personal and honest. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
 		name: "educational",
-		prompt: `Write a single punchy educational tweet for developers. Share one genuinely useful tip, trick,
-or insight about programming, system design, career growth, or tools.
-Format: lead with the insight, then a brief explanation. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+		prompt: `Write a single punchy educational tweet about AI or cybersecurity.
+Share one genuinely useful tip or insight developers need to know.
+Lead with the insight, then a brief explanation. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 	{
 		name: "news_reaction",
 		prompt: `Given this tech headline: "%s"
-Write a single tweet reacting to it with a strong opinion or take — agree, disagree, or add context.
-Make it feel like a real person's genuine reaction, not a summary. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Write a single tweet reacting to it with a strong opinion — agree, disagree, or add context.
+Make it feel like a real person's genuine reaction. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
 	},
 }
 
@@ -147,9 +181,11 @@ func callGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
 		Messages: []groqMessage{
 			{
 				Role: "system",
-				Content: "You are a witty tech Twitter personality. You write short, punchy, " +
-					"engaging tweets that get likes and retweets. Never use hashtags unless asked. " +
-					"Never add explanations or quotes around the tweet. Just output the raw tweet text.",
+				Content: "You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
+					"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
+					"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
+					"You favor AI tools, security threats, coding culture, and tech career topics. " +
+					"Never use hashtags unless asked. Never add explanations or quotes around the tweet. Just output the raw tweet text.",
 			},
 			{Role: "user", Content: userPrompt},
 		},
@@ -199,7 +235,7 @@ func callGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
 // topic is optional — if empty, Groq picks a relevant dev/tech topic.
 // Returns a slice of tweet strings, each <= 280 chars.
 func GenerateThread(apiKey, topic string) ([]string, error) {
-	topicLine := "Pick an interesting software engineering or tech topic."
+	topicLine := "Pick an interesting AI or cybersecurity topic that developers care about."
 	if topic != "" {
 		topicLine = fmt.Sprintf("Topic: %s", topic)
 	}
