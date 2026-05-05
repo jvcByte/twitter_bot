@@ -182,7 +182,29 @@ func GenerateMemePost(apiKey, headline string) (string, string, error) {
 	return post, format.name, nil
 }
 
-// IsTextOnlyFormat returns true for formats that perform better without images.
+// GenerateSelfComment generates a short follow-up comment to post on your own tweet.
+// This seeds the reply chain and boosts engagement velocity.
+func GenerateSelfComment(apiKey, postText string) string {
+	if apiKey == "" {
+		return ""
+	}
+	prompt := fmt.Sprintf(`You just posted this tweet:
+"%s"
+
+Write a short follow-up comment (1-2 sentences) to post as a reply to your own tweet.
+Style: add a personal take, a related fact, or ask a follow-up question to spark replies.
+Use 1-2 emojis. Max 200 chars. No hashtags. Just the comment text.`, postText)
+
+	result, err := callGroq(apiKey, prompt, 80)
+	if err != nil {
+		return ""
+	}
+	comment := strings.TrimSpace(strings.Trim(result, `"`))
+	if len(comment) > 280 {
+		comment = comment[:277] + "..."
+	}
+	return comment
+}
 func IsTextOnlyFormat(name string) bool {
 	return textOnlyFormats[name]
 }
@@ -418,27 +440,10 @@ func memegenEncode(s string) string {
 	return r.Replace(s)
 }
 
-// GenerateMemeImage creates a meme image for the given post text.
-// Uses Supermeme.ai (contextual AI image) when SUPERMEME_COOKIES is set,
-// falls back to memegen.link, then Imgflip.
-// Returns ("", nil) if no image source is available.
+// GenerateMemeImage creates a meme image using memegen.link (free, no auth required).
+// Falls back to Imgflip if memegen fails and credentials are available.
 func GenerateMemeImage(username, password, text0, text1 string) (string, error) {
-	fullText := text0
-	if text1 != "" {
-		fullText = text0 + " " + text1
-	}
-
-	// Supermeme: contextually relevant AI-picked template
-	if os.Getenv("SUPERMEME_COOKIES") != "" {
-		path, err := GenerateSupermemeImage(fullText)
-		if err != nil {
-			fmt.Printf("  supermeme failed: %v — falling back to memegen\n", err)
-		} else if path != "" {
-			return path, nil
-		}
-	}
-
-	// memegen.link: free, no auth
+	// memegen.link — free, no credentials
 	path, err := generateMemegenImage(text0, text1)
 	if err != nil {
 		fmt.Printf("  memegen failed: %v — falling back to imgflip\n", err)
@@ -446,7 +451,7 @@ func GenerateMemeImage(username, password, text0, text1 string) (string, error) 
 		return path, nil
 	}
 
-	// Imgflip: final fallback
+	// Imgflip fallback
 	if username == "" || password == "" {
 		return "", nil
 	}

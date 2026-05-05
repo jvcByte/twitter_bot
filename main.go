@@ -115,6 +115,15 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		fmt.Println("  ✓ tweeted")
 		tweeted++
 
+		// Self-engage: like, repost, comment — boosts velocity in first few minutes
+		if tweetURL != "" {
+			time.Sleep(2 * time.Second)
+			comment := content.GenerateSelfComment(cfg.GroqAPIKey, headline)
+			if err := client.SelfEngage(tweetURL, comment); err != nil {
+				log.Printf("  self-engage failed: %v", err)
+			}
+		}
+
 		// Reply with the link — keeps it off the main tweet for reach,
 		// but still accessible and seeds the reply chain for algorithm boost.
 		if tweetURL != "" {
@@ -161,12 +170,15 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		}
 	}
 
-	var tweetErr error
+	var (
+		tweetURL string
+		tweetErr error
+	)
 	if imgPath != "" {
-		_, tweetErr = client.TweetWithMedia(post, imgPath)
+		tweetURL, tweetErr = client.TweetWithMedia(post, imgPath)
 		os.Remove(imgPath)
 	} else {
-		_, tweetErr = client.Tweet(post)
+		tweetURL, tweetErr = client.Tweet(post)
 	}
 
 	if tweetErr != nil {
@@ -174,6 +186,15 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		return
 	}
 	fmt.Println("  ✓ tweeted")
+
+	// Self-engage immediately after posting
+	if tweetURL != "" {
+		time.Sleep(2 * time.Second)
+		comment := content.GenerateSelfComment(cfg.GroqAPIKey, post)
+		if err := client.SelfEngage(tweetURL, comment); err != nil {
+			log.Printf("  self-engage failed: %v", err)
+		}
+	}
 }
 
 // runThread generates and posts a multi-tweet thread via Groq.
