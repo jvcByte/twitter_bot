@@ -143,18 +143,22 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		return
 	}
 
-	post, err := content.GenerateMemePost(cfg.GroqAPIKey, headline)
+	post, formatName, err := content.GenerateMemePost(cfg.GroqAPIKey, headline)
 	if err != nil {
 		log.Printf("meme generation failed: %v", err)
 		return
 	}
 
-	fmt.Printf("→ [AI meme] %s\n", post)
+	fmt.Printf("→ [AI %s] %s\n", formatName, post)
 
-	top, bottom := splitMemeText(post)
-	imgPath, err := content.GenerateMemeImage(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
-	if err != nil {
-		log.Printf("  meme image failed: %v — posting text only", err)
+	// Text-only formats (polls, comparisons, community hooks) perform better without images
+	var imgPath string
+	if !content.IsTextOnlyFormat(formatName) {
+		top, bottom := splitMemeText(post)
+		imgPath, err = content.GenerateMemeImage(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+		if err != nil {
+			log.Printf("  meme image failed: %v — posting text only", err)
+		}
 	}
 
 	var tweetErr error
@@ -178,7 +182,7 @@ func runThread(client *twitter.Client, cfg *config.Config, topic string) {
 	if err != nil {
 		log.Printf("thread generation failed: %v — falling back to single post", err)
 		// Fall back to single meme post
-		post, err := content.GenerateMemePost(cfg.GroqAPIKey, topic)
+		post, _, err := content.GenerateMemePost(cfg.GroqAPIKey, topic)
 		if err != nil {
 			log.Printf("fallback meme failed: %v", err)
 			return
