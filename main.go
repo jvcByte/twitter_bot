@@ -92,7 +92,14 @@ func runNews(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 
 		imgPath, err := content.DownloadImage(a.ImageURL)
 		if err != nil {
-			log.Printf("  image download failed: %v — posting text only", err)
+			log.Printf("  image download failed: %v", err)
+		}
+		// If no article image, generate one with Pollinations
+		if imgPath == "" {
+			imgPath, err = content.GeneratePollinationsImage(cfg.GroqAPIKey, headline)
+			if err != nil {
+				log.Printf("  pollinations failed: %v — posting text only", err)
+			}
 		}
 
 		var (
@@ -164,7 +171,7 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 	var imgPath string
 	if !content.IsTextOnlyFormat(formatName) {
 		top, bottom := splitMemeText(post)
-		imgPath, err = content.GenerateMemeImage(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+		imgPath, err = content.GenerateMemeImageWithGroq(cfg.GroqAPIKey, cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
 		if err != nil {
 			log.Printf("  meme image failed: %v — posting text only", err)
 		}
