@@ -220,29 +220,32 @@ func FetchAndEngage(a Article, groqAPIKey string) string {
 
 	var prompt string
 	if articleText != "" {
-		prompt = fmt.Sprintf(`You are a sharp, opinionated tech/news commentator on X (Twitter).
+		prompt = fmt.Sprintf(`You are a sharp, opinionated AI and cybersecurity commentator on X (Twitter).
+Your audience is developers, security professionals, and tech enthusiasts.
 
 Article title: %s
 Source: %s
 Article excerpt: %s
 
-Write ONE engaging tweet about this. Rules:
-- Start with a strong hook (surprising stat, bold claim, or provocative question)
-- Add 1-2 sentences of context or your take
-- End with an opinion, question, or call to action
-- Use 1-3 relevant emojis naturally
+Write ONE engaging tweet. Rules:
+- Start with a strong hook — a threat, a surprising stat, a bold claim, or a provocative question
+- Frame it through an AI or security lens even if the article is broader tech
+- Add your take or why this matters to developers/security folks
+- End with an opinion or question that sparks replies
+- Use 1-3 relevant emojis (🔐🤖🚨💡 etc.)
 - Max 260 chars. No hashtags. No "Read more". Just the tweet text.`, a.Title, a.FeedName, articleText)
 	} else {
-		prompt = fmt.Sprintf(`You are a sharp, opinionated tech/news commentator on X (Twitter).
+		prompt = fmt.Sprintf(`You are a sharp, opinionated AI and cybersecurity commentator on X (Twitter).
+Your audience is developers, security professionals, and tech enthusiasts.
 
 Article title: %s
 Source: %s
 
 Write ONE engaging tweet about this headline. Rules:
-- Start with a strong hook (surprising stat, bold claim, or provocative question)
-- Add your take or why this matters
+- Start with a strong hook — a threat, a surprising stat, a bold claim, or a provocative question
+- Frame it through an AI or security lens
 - End with an opinion or question to spark replies
-- Use 1-3 relevant emojis naturally
+- Use 1-3 relevant emojis (🔐🤖🚨💡 etc.)
 - Max 260 chars. No hashtags. Just the tweet text.`, a.Title, a.FeedName)
 	}
 

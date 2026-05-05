@@ -139,15 +139,23 @@ Make it feel like a real person's genuine reaction. Use emojis. Max 240 chars. N
 	},
 }
 
-// GenerateMemePost generates an AI-powered funny/engaging tweet using Groq.
-// headline is optional — used for reaction/news_reaction formats. Pass empty string to skip.
-func GenerateMemePost(apiKey, headline string) (string, error) {
+// textOnlyFormats are engagement-bait formats that perform better without images.
+// Polls, comparisons, and community hooks drive replies — images distract from the CTA.
+var textOnlyFormats = map[string]bool{
+	"forced_choice_poll":  true,
+	"comparison_question": true,
+	"community_hook":      true,
+}
+
+// GenerateMemePost generates an AI-powered tweet using Groq.
+// Returns the post text and the format name used.
+// headline is optional — used for reaction/news_reaction formats.
+func GenerateMemePost(apiKey, headline string) (string, string, error) {
 	rand.Seed(time.Now().UnixNano())
 
-	// Pick a random format; if no headline, skip formats that require one
 	available := formats
 	if headline == "" {
-		filtered := formats[:0]
+		var filtered []postFormat
 		for _, f := range formats {
 			if f.name != "reaction" && f.name != "news_reaction" {
 				filtered = append(filtered, f)
@@ -164,14 +172,19 @@ func GenerateMemePost(apiKey, headline string) (string, error) {
 
 	post, err := callGroq(apiKey, prompt, 120)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	post = strings.TrimSpace(strings.Trim(post, `"`))
 	if len(post) > 280 {
 		post = post[:277] + "..."
 	}
-	return post, nil
+	return post, format.name, nil
+}
+
+// IsTextOnlyFormat returns true for formats that perform better without images.
+func IsTextOnlyFormat(name string) bool {
+	return textOnlyFormats[name]
 }
 
 // callGroq sends a user prompt to Groq and returns the raw text response.
@@ -240,15 +253,15 @@ func GenerateThread(apiKey, topic string) ([]string, error) {
 		topicLine = fmt.Sprintf("Topic: %s", topic)
 	}
 
-	prompt := fmt.Sprintf(`Write a Twitter thread of 6 tweets for a developer audience.
+	prompt := fmt.Sprintf(`Write a Twitter thread of 6 tweets for developers and security professionals.
 %s
 
 Rules:
-- Tweet 1: Hook — a bold claim, surprising fact, or compelling question. End with "🧵"
-- Tweets 2–5: Each tweet delivers one concrete insight, tip, or story beat. Numbered (2/, 3/, etc.)
-- Tweet 6: Strong closer — a takeaway, call to action, or punchy conclusion.
-- Each tweet must be <= 260 chars (leave room for numbering).
-- Use emojis naturally. No hashtags.
+- Tweet 1: Hook — a bold claim, shocking fact, or threat about AI or cybersecurity. End with "🧵"
+- Tweets 2–5: Each delivers one concrete insight, real-world example, or actionable tip. Numbered (2/, 3/, etc.)
+- Tweet 6: Strong closer — a call to action, prediction, or "save this" moment.
+- Each tweet must be <= 260 chars.
+- Use emojis naturally (🔐🤖🚨💡⚠️). No hashtags.
 - Output ONLY the 6 tweets, one per line, nothing else.`, topicLine)
 
 	raw, err := callGroq(apiKey, prompt, 900)
@@ -405,11 +418,27 @@ func memegenEncode(s string) string {
 	return r.Replace(s)
 }
 
-// GenerateMemeImage creates a meme image using memegen.link (free, no auth required).
-// Falls back to Imgflip if memegen fails and credentials are available.
-// text0 = top text, text1 = bottom text.
+// GenerateMemeImage creates a meme image for the given post text.
+// Uses Supermeme.ai (contextual AI image) when SUPERMEME_COOKIES is set,
+// falls back to memegen.link, then Imgflip.
+// Returns ("", nil) if no image source is available.
 func GenerateMemeImage(username, password, text0, text1 string) (string, error) {
-	// Try memegen.link first — free, no credentials needed
+	fullText := text0
+	if text1 != "" {
+		fullText = text0 + " " + text1
+	}
+
+	// Supermeme: contextually relevant AI-picked template
+	if os.Getenv("SUPERMEME_COOKIES") != "" {
+		path, err := GenerateSupermemeImage(fullText)
+		if err != nil {
+			fmt.Printf("  supermeme failed: %v — falling back to memegen\n", err)
+		} else if path != "" {
+			return path, nil
+		}
+	}
+
+	// memegen.link: free, no auth
 	path, err := generateMemegenImage(text0, text1)
 	if err != nil {
 		fmt.Printf("  memegen failed: %v — falling back to imgflip\n", err)
@@ -417,7 +446,7 @@ func GenerateMemeImage(username, password, text0, text1 string) (string, error) 
 		return path, nil
 	}
 
-	// Fallback: Imgflip
+	// Imgflip: final fallback
 	if username == "" || password == "" {
 		return "", nil
 	}
