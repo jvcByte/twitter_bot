@@ -8,7 +8,7 @@ on:
 jobs:
   post:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -39,7 +39,7 @@ jobs:
           IMGFLIP_USERNAME: ${{ secrets.IMGFLIP_USERNAME }}
           IMGFLIP_PASSWORD: ${{ secrets.IMGFLIP_PASSWORD }}
           POST_MODE: ${{ vars.POST_MODE }}
-          FEEDS_FILE: ${{ vars.FEEDS_FILE }}
+          FEEDS_FILE: data/ai_security_feeds.json
           CATEGORY: ${{ vars.CATEGORY }}
           MAX_ARTICLE_AGE_HOURS: ${{ vars.MAX_ARTICLE_AGE_HOURS }}
           TWEET_DELAY_SECONDS: ${{ vars.TWEET_DELAY_SECONDS }}
