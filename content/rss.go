@@ -114,8 +114,8 @@ func Poll(seen *SeenStore, maxAge time.Duration, feedsFile, category string) ([]
 		return nil, err
 	}
 
-	// Filter by category if requested
-	if category != "" {
+	// Filter by category if requested (skip if category is empty or "all")
+	if category != "" && !strings.EqualFold(category, "all") {
 		filtered := feeds[:0]
 		for _, f := range feeds {
 			if strings.EqualFold(f.Category, category) {
