@@ -1,6 +1,5 @@
 .env
 *.png
-data/seen_articles.json
 *.log
 twitter-bot
 dist/
