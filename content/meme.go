@@ -41,19 +41,19 @@ var formats = []postFormat{
 		name: "dev_humor",
 		prompt: `Write a single funny tweet about software development or programming. 
 Style: relatable dev humor like "it works on my machine", merge conflicts, CSS pain, 
-Monday deploys, or debugging at 3am. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Monday deploys, or debugging at 3am. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "hot_take",
 		prompt: `Write a single spicy tech hot take tweet starting with "Unpopular opinion:" or "Hot take:".
 Make it about AI, cybersecurity, software development, or tech culture.
-Should be slightly controversial but not offensive. Max 240 chars. No hashtags. Just the tweet text.`,
+Should be slightly controversial but not offensive. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "relatable",
 		prompt: `Write a single relatable tweet for developers/tech people using the "me at X vs me at Y" format
 or "nobody: / developers:" format. About coding, debugging, meetings, deadlines, or tech life.
-Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "forced_choice_poll",
@@ -69,7 +69,7 @@ Pick ONE in 2026:
 Drop your pick 👇
 
 Topics: AI tools (ChatGPT vs Claude vs Gemini vs Copilot), frontend frameworks, backend languages,
-cloud providers, editors, databases, security tools. Max 240 chars. No hashtags. Just the tweet text.`,
+cloud providers, editors, databases, security tools. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "comparison_question",
@@ -78,7 +78,7 @@ Pick two things developers often confuse or debate: AI concepts, security terms,
 Examples: "What's the difference between authentication and authorization?",
 "What's the difference between AI and Machine Learning?",
 "What's the difference between a virus and malware?"
-Keep it short and punchy. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Keep it short and punchy. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "community_hook",
@@ -88,7 +88,7 @@ Keep it short and punchy. Use emojis. Max 240 chars. No hashtags. Just the tweet
 Drop your [X] in the comments 👇
 [Simple call to action like "follow 3 people who reply" or "let's connect"]
 
-Make it feel warm and community-driven. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Make it feel warm and community-driven. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "ai_security_take",
@@ -97,45 +97,45 @@ Could be a warning, a surprising fact, a prediction, or a strong opinion.
 Examples: "AI is making phishing attacks 10x harder to detect 🚨",
 "The biggest security threat in 2026 isn't hackers — it's AI-generated social engineering",
 "Most developers don't know their AI tools are leaking their code to third parties"
-Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "thread_starter",
 		prompt: `Write a single tweet that starts a thread about AI or cybersecurity with "🧵" at the end.
 Format: "X things [about AI/security topic] that will blow your mind 🧵" or
 "Nobody talks about [AI/security thing] but here's what you need to know 🧵"
-Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "reaction",
 		prompt: `Given this tech headline: "%s"
 Write a single funny/witty tweet reacting to it from a developer's perspective.
-Could be sarcastic, surprised, or humorous. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Could be sarcastic, surprised, or humorous. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "question",
 		prompt: `Write a single open-ended question tweet for developers/tech people focused on AI or security.
 Should spark debate. Examples: "Is AI making developers lazy or more productive?",
 "Should every developer learn cybersecurity basics?", "Will AI replace junior developers by 2027?"
-Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "storytelling",
 		prompt: `Write a single tweet that opens a relatable developer story or confession about AI or security.
 Format: start with "Story time:" or "True story:" or a punchy hook.
-Make it feel personal and honest. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Make it feel personal and honest. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "educational",
 		prompt: `Write a single punchy educational tweet about AI or cybersecurity.
 Share one genuinely useful tip or insight developers need to know.
-Lead with the insight, then a brief explanation. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Lead with the insight, then a brief explanation. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 	{
 		name: "news_reaction",
 		prompt: `Given this tech headline: "%s"
 Write a single tweet reacting to it with a strong opinion — agree, disagree, or add context.
-Make it feel like a real person's genuine reaction. Use emojis. Max 240 chars. No hashtags. Just the tweet text.`,
+Make it feel like a real person's genuine reaction. Use emojis. Max 230 chars (leave room for 1-2 hashtags). Just the tweet text.`,
 	},
 }
 
@@ -196,7 +196,7 @@ Rules:
 - Must be DIFFERENT in style from the original — if the tweet was a story, ask a question; if it was a question, add a fact; if it was a hot take, add a stat or example
 - Goal: spark replies from other people
 - Use 1 emoji max
-- Max 180 chars. No hashtags. Just the comment text.`, postText)
+- Max 180 chars. Just the comment text.`, postText)
 
 	result, err := callGroq(apiKey, prompt, 60)
 	if err != nil {
@@ -212,34 +212,43 @@ func IsTextOnlyFormat(name string) bool {
 	return textOnlyFormats[name]
 }
 
-// callGroq sends a user prompt to Groq and returns the raw text response.
-func callGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
-	reqBody := groqRequest{
-		Model: "llama-3.3-70b-versatile",
-		Messages: []groqMessage{
-			{
-				Role: "system",
-				Content: "You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
-					"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
-					"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
-					"You favor AI tools, security threats, coding culture, and tech career topics. " +
-					"Never use hashtags unless asked. Never add explanations or quotes around the tweet. Just output the raw tweet text.",
-			},
-			{Role: "user", Content: userPrompt},
-		},
-		MaxTokens:   maxTokens,
-		Temperature: 0.9,
-	}
+// knownHandles is a curated list of real, verified accounts in AI, security, and dev spaces.
+// The LLM picks from this list when a tag is contextually relevant — no invented handles.
+const knownHandles = `
+AI/ML: @OpenAI @AnthropicAI @GoogleDeepMind @sama @karpathy @ylecun @GaryMarcus @emollick @swyx @goodside @xAI @grok
+Cybersecurity: @briankrebs @schneierblog @threatpost @DarkReading @troyhunt @SwiftOnSecurity @thegrugq @taviso
+Dev/Engineering: @dhh @unclebobmartin @martinfowler @kelseyhightower @jessfraz @masnick @b0rk @ThePrimeagen @theprimeagen
+PCB/Embedded/Hardware: @adafruit @sparkfun @EEVblog @hackaday @jeri_ellsworth @bunniestudios
+Tech companies: @github @vercel @cloudflare @hashicorp @dockerhub
 
+Tag @grok or @xAI when asking a question that Grok could answer, debating an AI topic, or reacting to xAI news.
+Example: "Is AI actually making developers less skilled? 🤔 @grok what do you think? #AI #DevLife"
+`
+
+// callGroq sends a user prompt to Groq with the default AI/security system prompt.
+func callGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
+	return callGroqWithSystem(apiKey,
+		"You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. "+
+			"You write short, punchy, engaging posts that get replies, likes, and retweets. "+
+			"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. "+
+			"You favor AI tools, security threats, coding culture, and tech career topics. "+
+			"Never add explanations or quotes around the tweet. "+
+			"Add 1-2 relevant hashtags at the end (e.g. #AI #CyberSecurity #DevLife #Coding). "+
+			"ONLY tag someone if the post is directly about them or their work, and ONLY use handles from this verified list: "+knownHandles+
+			" Never invent or guess handles. Just output the raw tweet text.",
+		userPrompt, maxTokens)
+}
+
+// callGroqRaw executes a pre-built groqRequest and returns the first choice text.
+func callGroqRaw(apiKey string, reqBody groqRequest) (string, error) {
 	data, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", fmt.Errorf("marshal: %w", err)
 	}
-
 	req, err := http.NewRequest("POST", "https://api.groq.com/openai/v1/chat/completions",
 		bytes.NewBuffer(data))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -253,15 +262,14 @@ func callGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return "", fmt.Errorf("read response: %w", err)
 	}
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("groq API error (%d): %s", resp.StatusCode, string(body))
 	}
-
 	var gr groqResponse
 	if err := json.Unmarshal(body, &gr); err != nil {
-		return "", fmt.Errorf("failed to parse response: %w", err)
+		return "", fmt.Errorf("parse response: %w", err)
 	}
 	if len(gr.Choices) == 0 {
 		return "", fmt.Errorf("no response from groq")
@@ -286,7 +294,7 @@ Rules:
 - Tweets 2–5: Each delivers one concrete insight, real-world example, or actionable tip. Numbered (2/, 3/, etc.)
 - Tweet 6: Strong closer — a call to action, prediction, or "save this" moment.
 - Each tweet must be <= 260 chars.
-- Use emojis naturally (🔐🤖🚨💡⚠️). No hashtags.
+- Use emojis naturally (🔐🤖🚨💡⚠️). Add 1-2 relevant hashtags.
 - Output ONLY the 6 tweets, one per line, nothing else.`, topicLine)
 
 	raw, err := callGroq(apiKey, prompt, 900)
