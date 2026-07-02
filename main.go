@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -64,6 +65,8 @@ func runPoll(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		runMeme(client, seen, cfg, "")
 	case "mixed":
 		runMixed(client, seen, cfg)
+	case "creator":
+		runCreator(client, cfg)
 	default: // "news"
 		runNews(client, seen, cfg)
 	}
@@ -202,6 +205,83 @@ func runMeme(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 	}
 }
 
+// runCreator posts owned content — tips, opinions, build logs, PCB insights.
+// ~30% chance of a personal thread, otherwise a single post.
+func runCreator(client *twitter.Client, cfg *config.Config) {
+	if cfg.GroqAPIKey == "" {
+		log.Printf("GROQ_API_KEY not set — skipping creator post")
+		return
+	}
+
+	// ~30% chance to post a thread
+	if rand.Intn(10) < 3 {
+		tweets, err := content.GenerateCreatorThread(cfg.GroqAPIKey, "")
+		if err != nil {
+			log.Printf("creator thread failed: %v — falling back to single post", err)
+		} else {
+			fmt.Printf("→ [creator thread] %d tweets | %s\n", len(tweets), tweets[0])
+			threadURL, err := client.Thread(tweets, "")
+			if err != nil {
+				log.Printf("thread post failed: %v", err)
+				return
+			}
+			fmt.Println("  ✓ thread posted")
+			if threadURL != "" {
+				time.Sleep(2 * time.Second)
+				comment := content.GenerateSelfComment(cfg.GroqAPIKey, tweets[0])
+				if err := client.SelfEngage(threadURL, comment); err != nil {
+					log.Printf("  self-engage failed: %v", err)
+				}
+			}
+			return
+		}
+	}
+
+	post, formatName, err := content.GenerateCreatorPost(cfg.GroqAPIKey)
+	if err != nil {
+		log.Printf("creator post failed: %v", err)
+		return
+	}
+
+	fmt.Printf("→ [creator %s] %s\n", formatName, post)
+
+	var (
+		tweetURL string
+		tweetErr error
+	)
+
+	// Text-only formats don't benefit from images
+	if !content.IsCreatorTextOnly(formatName) {
+		top, bottom := splitMemeText(post)
+		imgPath, err := content.GenerateMemeImageWithGroq(cfg.GroqAPIKey, cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+		if err != nil {
+			log.Printf("  image failed: %v — posting text only", err)
+		}
+		if imgPath != "" {
+			tweetURL, tweetErr = client.TweetWithMedia(post, imgPath)
+			os.Remove(imgPath)
+		} else {
+			tweetURL, tweetErr = client.Tweet(post)
+		}
+	} else {
+		tweetURL, tweetErr = client.Tweet(post)
+	}
+
+	if tweetErr != nil {
+		log.Printf("tweet failed: %v", tweetErr)
+		return
+	}
+	fmt.Println("  ✓ tweeted")
+
+	if tweetURL != "" {
+		time.Sleep(2 * time.Second)
+		comment := content.GenerateSelfComment(cfg.GroqAPIKey, post)
+		if err := client.SelfEngage(tweetURL, comment); err != nil {
+			log.Printf("  self-engage failed: %v", err)
+		}
+	}
+}
+
 // runThread generates and posts a multi-tweet thread via Groq.
 func runThread(client *twitter.Client, cfg *config.Config, topic string) {
 	tweets, err := content.GenerateThread(cfg.GroqAPIKey, topic)
@@ -253,68 +333,120 @@ func splitMemeText(post string) (string, string) {
 }
 
 func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {
+	runRotation(client, seen, cfg)
+}
+
+// rotationSlot defines what content type fires on a given slot index.
+// Pattern repeats every 6 slots: news, creator, news, meme, creator, news
+// At 4 posts/day (every 6h) this gives: 3 news, 2 creator, 1 meme per day.
+var rotationSlots = []string{
+	"news",
+	"creator",
+	"news",
+	"meme",
+	"creator",
+	"news",
+}
+
+const rotationStatePath = "data/rotation_state.json"
+
+type rotationState struct {
+	Slot int `json:"slot"`
+}
+
+func loadRotationSlot() int {
+	data, err := os.ReadFile(rotationStatePath)
+	if err != nil {
+		return 0
+	}
+	var s rotationState
+	if err := json.Unmarshal(data, &s); err != nil {
+		return 0
+	}
+	return s.Slot % len(rotationSlots)
+}
+
+func saveRotationSlot(slot int) {
+	data, _ := json.Marshal(rotationState{Slot: slot})
+	os.WriteFile(rotationStatePath, data, 0644)
+}
+
+// runRotation fires the correct content type for the current slot, then advances.
+func runRotation(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {
+	slot := loadRotationSlot()
+	contentType := rotationSlots[slot]
+	next := (slot + 1) % len(rotationSlots)
+	saveRotationSlot(next)
+
+	fmt.Printf("  rotation slot %d/%d → %s\n", slot+1, len(rotationSlots), contentType)
+
+	switch contentType {
+	case "news":
+		// Post one news article with self-engage + link reply
+		runNewsOne(client, seen, cfg)
+	case "creator":
+		runCreator(client, cfg)
+	case "meme":
+		runMeme(client, seen, cfg, "")
+	}
+}
+
+// runNewsOne posts a single news article — used inside rotation so we don't dump
+// all articles at once and crowd out creator/meme slots.
+func runNewsOne(client *twitter.Client, seen *content.SeenStore, cfg *config.Config) {
 	articles, err := content.Poll(seen, cfg.MaxArticleAge, cfg.FeedsFile, cfg.Category)
 	if err != nil {
 		log.Printf("poll error: %v", err)
 		return
 	}
-
-	fmt.Printf("found %d new articles\n", len(articles))
-
-	tweeted := 0
-	memeInserted := false
-
-	for _, a := range articles {
-		if cfg.MaxTweetsPerRun > 0 && tweeted >= cfg.MaxTweetsPerRun {
-			fmt.Printf("reached max %d tweets per run\n", cfg.MaxTweetsPerRun)
-			break
-		}
-
-		// Insert one meme/humor post roughly in the middle of the run
-		if !memeInserted && tweeted == cfg.MaxTweetsPerRun/2 {
-			runMeme(client, seen, cfg, a.Title)
-			memeInserted = true
-			time.Sleep(cfg.TweetDelay)
-			continue
-		}
-
-		// Post AI-enhanced headline + image (no link = better reach)
-		headline := content.FetchAndEngage(a, cfg.GroqAPIKey)
-		fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
-		fmt.Printf("  tweet: %s\n", headline)
-
-		tweetURL, err := client.Tweet(headline)
-		if err != nil {
-			log.Printf("tweet failed: %v", err)
-			continue
-		}
-
-		seen.Add(a.Link)
-		fmt.Println("  ✓ tweeted")
-		tweeted++
-
-		if tweetURL != "" {
-			time.Sleep(3 * time.Second)
-			replyText := fmt.Sprintf("🔗 Full story: %s", a.Link)
-			if _, err := client.ReplyTo(tweetURL, replyText); err != nil {
-				log.Printf("  link reply failed: %v", err)
-			} else {
-				fmt.Println("  ✓ link reply posted")
-			}
-		}
-
-		// Occasionally inject a standalone meme between news posts
-		if !memeInserted && tweeted > 0 && rand.Intn(3) == 0 {
-			time.Sleep(cfg.TweetDelay)
-			runMeme(client, seen, cfg, "")
-			memeInserted = true
-		}
-
-		time.Sleep(cfg.TweetDelay)
+	if len(articles) == 0 {
+		fmt.Println("  no new articles — skipping news slot")
+		// Nothing to post this slot — don't burn a creator/meme slot, just skip
+		return
 	}
 
-	// If no meme was inserted yet (e.g. no articles), post one standalone
-	if !memeInserted && cfg.GroqAPIKey != "" {
-		runMeme(client, seen, cfg, "")
+	a := articles[0]
+	headline := content.FetchAndEngage(a, cfg.GroqAPIKey)
+	fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
+	fmt.Printf("  tweet: %s\n", headline)
+
+	imgPath, err := content.DownloadImage(a.ImageURL)
+	if err != nil {
+		log.Printf("  image download failed: %v", err)
+	}
+	if imgPath == "" {
+		imgPath, err = content.GeneratePollinationsImage(cfg.GroqAPIKey, headline)
+		if err != nil {
+			log.Printf("  pollinations failed: %v — text only", err)
+		}
+	}
+
+	var tweetURL string
+	if imgPath != "" {
+		tweetURL, err = client.TweetWithMedia(headline, imgPath)
+		os.Remove(imgPath)
+	} else {
+		tweetURL, err = client.Tweet(headline)
+	}
+	if err != nil {
+		log.Printf("tweet failed: %v", err)
+		return
+	}
+
+	seen.Add(a.Link)
+	fmt.Println("  ✓ tweeted")
+
+	if tweetURL != "" {
+		time.Sleep(2 * time.Second)
+		comment := content.GenerateSelfComment(cfg.GroqAPIKey, headline)
+		if err := client.SelfEngage(tweetURL, comment); err != nil {
+			log.Printf("  self-engage failed: %v", err)
+		}
+		time.Sleep(3 * time.Second)
+		if _, err := client.ReplyTo(tweetURL, fmt.Sprintf("🔗 Full story: %s", a.Link)); err != nil {
+			log.Printf("  link reply failed: %v", err)
+		} else {
+			fmt.Println("  ✓ link reply posted")
+		}
 	}
 }
