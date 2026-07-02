@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -54,3 +56,12 @@ jobs:
           name: screenshots-tech-${{ github.run_id }}
           path: "*.png"
           if-no-files-found: ignore
+
+      - name: Commit state files
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/seen_articles.json data/rotation_state.json data/seen_creator.json
+          git diff --staged --quiet || git commit -m "chore: update bot state [skip ci]"
+          git push
