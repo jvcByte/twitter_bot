@@ -67,6 +67,8 @@ func runPoll(client *twitter.Client, seen *content.SeenStore, cfg *config.Config
 		runMixed(client, seen, cfg)
 	case "creator":
 		runCreator(client, cfg)
+	case "engage":
+		runEngagement(client, cfg)
 	default: // "news"
 		runNews(client, seen, cfg)
 	}
@@ -282,6 +284,54 @@ func runCreator(client *twitter.Client, cfg *config.Config) {
 	}
 }
 
+// engagementTopics are search queries the bot uses to find relevant posts to engage with.
+var engagementTopics = []string{
+	"PCB design",
+	"embedded systems",
+	"firmware development",
+	"KiCad",
+	"STM32",
+	"ESP32",
+	"software engineering",
+	"clean code",
+	"Go programming",
+	"Python embedded",
+	"#EmbeddedSystems",
+	"#PCBDesign",
+	"#Firmware",
+	"#SoftwareEngineering",
+	"#Golang",
+	"AI cybersecurity",
+	"#DevLife",
+}
+
+// runEngagement finds and engages with relevant posts from other users.
+func runEngagement(client *twitter.Client, cfg *config.Config) {
+	fmt.Println("→ [engage] searching for relevant posts...")
+
+	commentFn := func(tweetText string) string {
+		if cfg.GroqAPIKey == "" || len(tweetText) < 20 {
+			return ""
+		}
+		// ~50% chance to comment — not every like needs a comment
+		if time.Now().UnixNano()%2 == 0 {
+			return ""
+		}
+		comment, err := content.GenerateEngagementComment(cfg.GroqAPIKey, tweetText)
+		if err != nil || comment == "" {
+			return ""
+		}
+		return comment
+	}
+
+	n, err := client.EngageWithTopic(engagementTopics, 5, commentFn, 2)
+	if err != nil {
+		log.Printf("engagement failed: %v", err)
+		return
+	}
+	fmt.Printf("  ✓ engaged with %d posts\n", n)
+}
+
 // runThread generates and posts a multi-tweet thread via Groq.
 func runThread(client *twitter.Client, cfg *config.Config, topic string) {
 	tweets, err := content.GenerateThread(cfg.GroqAPIKey, topic)
@@ -336,15 +386,17 @@ func runMixed(client *twitter.Client, seen *content.SeenStore, cfg *config.Confi
 	runRotation(client, seen, cfg)
 }
 
-// rotationSlot defines what content type fires on a given slot index.
-// Pattern repeats every 6 slots: news, creator, news, meme, creator, news
-// At 4 posts/day (every 6h) this gives: 3 news, 2 creator, 1 meme per day.
+// rotationSlots defines what content type fires on a given slot index.
+// Pattern repeats every 8 slots: news, creator, engage, news, meme, creator, engage, news
+// At 4 posts/day this gives: 3 news, 2 creator, 1 meme, 2 engage per day.
 var rotationSlots = []string{
 	"news",
 	"creator",
+	"engage",
 	"news",
 	"meme",
 	"creator",
+	"engage",
 	"news",
 }
 
@@ -382,12 +434,13 @@ func runRotation(client *twitter.Client, seen *content.SeenStore, cfg *config.Co
 
 	switch contentType {
 	case "news":
-		// Post one news article with self-engage + link reply
 		runNewsOne(client, seen, cfg)
 	case "creator":
 		runCreator(client, cfg)
 	case "meme":
 		runMeme(client, seen, cfg, "")
+	case "engage":
+		runEngagement(client, cfg)
 	}
 }
 

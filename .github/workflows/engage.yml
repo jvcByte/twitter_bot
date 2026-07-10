@@ -1,0 +1,50 @@
+name: Social Engagement
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # every 2 hours (12x/day)
+  workflow_dispatch:
+
+jobs:
+  engage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Install Google Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb
+          sudo apt-get install -f -y
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run engagement
+        env:
+          TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
+          TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
+          TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          POST_MODE: engage
+          RUN_ONCE: "true"
+        run: go run main.go
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-engage-${{ github.run_id }}
+          path: "*.png"
+          if-no-files-found: ignore

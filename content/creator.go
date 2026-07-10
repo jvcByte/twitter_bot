@@ -265,3 +265,28 @@ func callGroqWithSystem(apiKey, systemPrompt, userPrompt string, maxTokens int) 
 func IsCreatorTextOnly(name string) bool {
 	return creatorTextOnly[name]
 }
+
+// GenerateEngagementComment generates a short, genuine reply to someone else's tweet.
+// The comment should add value — a follow-up question, a related insight, or agreement with context.
+func GenerateEngagementComment(apiKey, tweetText string) (string, error) {
+	prompt := fmt.Sprintf(`Someone posted this tweet:
+"%s"
+
+Write a SHORT reply (1-2 sentences) that adds genuine value to the conversation.
+Rules:
+- Add a related technical insight, ask a follow-up question, or share a brief relevant observation
+- Sound like a real engineer — not a bot, not a marketer
+- Do NOT just say "great post!" or "totally agree!" — be specific
+- Do NOT start with "I" 
+- Max 200 chars. No hashtags. Just the reply text.`, tweetText)
+
+	reply, err := callGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 80)
+	if err != nil {
+		return "", err
+	}
+	reply = strings.TrimSpace(strings.Trim(reply, `"`))
+	if len(reply) > 280 {
+		reply = reply[:277] + "..."
+	}
+	return reply, nil
+}

@@ -557,3 +557,173 @@ func loadCookies(page *rod.Page) error {
 	}
 	return nil
 }
+
+// EngageWithTopic searches X for a topic, then likes and optionally comments/reposts
+// on relevant posts from other users. Returns the number of posts engaged with.
+//
+// topics: search queries to rotate through (e.g. "PCB design", "#EmbeddedSystems")
+// maxPosts: max number of posts to engage with per call
+// commentFn: called with the tweet text — return a comment string, or "" to skip commenting
+// repostChance: 0–10, probability of reposting (e.g. 2 = ~20% chance per post)
+func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(string) string, repostChance int) (int, error) {
+	if len(topics) == 0 || maxPosts == 0 {
+		return 0, nil
+	}
+
+	// Pick a random topic from the list
+	topic := topics[time.Now().UnixNano()%int64(len(topics))]
+
+	fmt.Printf("Launching browser for social engagement (topic: %q)...\n", topic)
+
+	browser, page, err := c.launchSession()
+	if err != nil {
+		return 0, err
+	}
+	defer browser.MustClose()
+
+	// Navigate to search results — Latest tab for fresh content
+	searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query&f=live"
+	page.MustNavigate(searchURL)
+	page.MustWaitLoad()
+	time.Sleep(4 * time.Second)
+
+	engaged := 0
+	seen := map[string]bool{}
+
+	// Scroll and engage — up to 3 scroll passes
+	for pass := 0; pass < 3 && engaged < maxPosts; pass++ {
+		// Collect tweet articles on the page
+		articles, _ := page.Elements(`article[data-testid="tweet"]`)
+
+		for _, article := range articles {
+			if engaged >= maxPosts {
+				break
+			}
+
+			// Extract tweet permalink to deduplicate
+			links, _ := article.Elements(`a[href*="/status/"]`)
+			tweetPath := ""
+			for _, l := range links {
+				href, _ := l.Attribute("href")
+				if href != nil && strings.Contains(*href, "/status/") {
+					tweetPath = *href
+					break
+				}
+			}
+			if tweetPath == "" || seen[tweetPath] {
+				continue
+			}
+
+			// Skip our own tweets
+			if strings.Contains(strings.ToLower(tweetPath), strings.ToLower(c.username)) {
+				continue
+			}
+
+			seen[tweetPath] = true
+
+			// Extract tweet text for comment generation
+			tweetText := ""
+			if textEl, err := article.Element(`[data-testid="tweetText"]`); err == nil {
+				tweetText, _ = textEl.Text()
+			}
+
+			// ── Like ──────────────────────────────────────────────────────────
+			likeBtn, err := article.Element(`[data-testid="like"]`)
+			if err != nil {
+				continue // can't find like button — skip this tweet
+			}
+			likeBtn.MustEval(`() => this.click()`)
+			time.Sleep(800 * time.Millisecond)
+			fmt.Printf("  ✓ liked: %s\n", tweetPath)
+
+			// ── Comment ───────────────────────────────────────────────────────
+			if commentFn != nil && tweetText != "" {
+				comment := commentFn(tweetText)
+				if comment != "" {
+					tweetURL := "https://x.com" + tweetPath
+					if _, err := c.replyInSession(page, article, comment); err != nil {
+						log.Printf("  comment failed: %v", err)
+					} else {
+						fmt.Printf("  ✓ commented on %s\n", tweetURL)
+					}
+					time.Sleep(2 * time.Second)
+				}
+			}
+
+			// ── Repost (probabilistic) ────────────────────────────────────────
+			if repostChance > 0 && int(time.Now().UnixNano()%10) < repostChance {
+				repostBtn, err := article.Element(`[data-testid="retweet"]`)
+				if err == nil {
+					repostBtn.MustEval(`() => this.click()`)
+					time.Sleep(1 * time.Second)
+					if confirmBtn, err := page.Timeout(5 * time.Second).Element(`[data-testid="retweetConfirm"]`); err == nil {
+						confirmBtn.MustEval(`() => this.click()`)
+						time.Sleep(1 * time.Second)
+						fmt.Printf("  ✓ reposted: %s\n", tweetPath)
+					}
+				}
+			}
+
+			engaged++
+			time.Sleep(1500 * time.Millisecond) // pace between engagements
+		}
+
+		if engaged < maxPosts {
+			// Scroll down for more results
+			page.MustEval(`() => window.scrollBy(0, window.innerHeight * 2)`)
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	fmt.Printf("Social engagement done: %d posts engaged\n", engaged)
+	return engaged, nil
+}
+
+// replyInSession posts a reply to a tweet article already on the page,
+// reusing the existing browser session.
+func (c *Client) replyInSession(page *rod.Page, article *rod.Element, comment string) (string, error) {
+	replyBtn, err := article.Element(`[data-testid="reply"]`)
+	if err != nil {
+		return "", fmt.Errorf("reply button not found")
+	}
+	replyBtn.MustEval(`() => this.click()`)
+	time.Sleep(2 * time.Second)
+
+	replyBox, err := page.Timeout(timeout).Element(`[data-testid="tweetTextarea_0"]`)
+	if err != nil {
+		return "", fmt.Errorf("reply composer not found")
+	}
+	replyBox.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+	if err := page.InsertText(comment); err != nil {
+		return "", fmt.Errorf("type failed: %w", err)
+	}
+	time.Sleep(800 * time.Millisecond)
+
+	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
+	if err != nil {
+		// Close the composer and bail
+		page.Keyboard.Press(27) // Escape
+		return "", fmt.Errorf("submit button not found")
+	}
+	submitBtn.MustEval(`() => this.click()`)
+	time.Sleep(3 * time.Second)
+	return "", nil
+}
+
+// urlEncode encodes a string for use in a URL query parameter.
+func urlEncode(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z', r >= 'a' && r <= 'z', r >= '0' && r <= '9',
+			r == '-', r == '_', r == '.', r == '~':
+			b.WriteRune(r)
+		case r == ' ':
+			b.WriteString("%20")
+		default:
+			b.WriteString(fmt.Sprintf("%%%02X", r))
+		}
+	}
+	return b.String()
+}
