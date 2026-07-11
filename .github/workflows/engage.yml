@@ -2,7 +2,7 @@ name: Social Engagement
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # every 2 hours (12x/day)
+    - cron: '*/30 * * * *'  # every 30 minutes
   workflow_dispatch:
 
 jobs:
