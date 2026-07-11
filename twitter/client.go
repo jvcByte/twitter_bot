@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 )
@@ -703,7 +704,7 @@ func (c *Client) replyInSession(page *rod.Page, article *rod.Element, comment st
 	submitBtn, err := page.Timeout(timeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
 	if err != nil {
 		// Close the composer and bail
-		page.Keyboard.Press(27) // Escape
+		page.Keyboard.Press(input.Escape) //nolint
 		return "", fmt.Errorf("submit button not found")
 	}
 	submitBtn.MustEval(`() => this.click()`)
