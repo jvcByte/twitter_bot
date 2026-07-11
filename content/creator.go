@@ -267,18 +267,25 @@ func IsCreatorTextOnly(name string) bool {
 }
 
 // GenerateEngagementComment generates a short, genuine reply to someone else's tweet.
-// The comment should add value — a follow-up question, a related insight, or agreement with context.
+// Varies between adding insight, agreeing with context, sharing a related experience, or asking one question.
 func GenerateEngagementComment(apiKey, tweetText string) (string, error) {
-	prompt := fmt.Sprintf(`Someone posted this tweet:
+	prompt := fmt.Sprintf(`Read this tweet carefully and write a natural, human reply:
 "%s"
 
-Write a SHORT reply (1-2 sentences) that adds genuine value to the conversation.
+Pick the most fitting response style based on what the tweet is actually saying:
+- If it's sharing a tip or insight → add a related technical point or confirm with your own take
+- If it's asking a question → answer it directly and concisely  
+- If it's sharing a build or project → react to the specific thing they built
+- If it's a hot take or opinion → agree or respectfully push back with a reason
+- If it's a debugging story → relate to it or add what you'd check next
+
 Rules:
-- Add a related technical insight, ask a follow-up question, or share a brief relevant observation
-- Sound like a real engineer — not a bot, not a marketer
-- Do NOT just say "great post!" or "totally agree!" — be specific
-- Do NOT start with "I" 
-- Max 200 chars. No hashtags. Just the reply text.`, tweetText)
+- Sound like a real engineer replying to a colleague, not a bot
+- Be specific to what they actually said — no generic "great post!" or "totally agree!"
+- Do NOT always end with a question — only ask one if it genuinely fits
+- Do NOT start with "I"
+- Do NOT be preachy or lecture them
+- Max 180 chars. No hashtags. Just the reply text.`, tweetText)
 
 	reply, err := callGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 80)
 	if err != nil {
