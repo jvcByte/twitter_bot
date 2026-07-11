@@ -561,39 +561,45 @@ func loadCookies(page *rod.Page) error {
 
 // EngageWithTopic searches X for a topic, then likes and optionally comments/reposts
 // on relevant posts from other users. Returns the number of posts engaged with.
-//
-// topics: search queries to rotate through (e.g. "PCB design", "#EmbeddedSystems")
-// maxPosts: max number of posts to engage with per call
-// commentFn: called with the tweet text — return a comment string, or "" to skip commenting
-// repostChance: 0–10, probability of reposting (e.g. 2 = ~20% chance per post)
-func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(string) string, repostChance int) (int, error) {
+func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(string) string, repostChance int) (n int, err error) {
 	if len(topics) == 0 || maxPosts == 0 {
 		return 0, nil
 	}
 
-	// Pick a random topic from the list
-	topic := topics[time.Now().UnixNano()%int64(len(topics))]
+	// Recover from any panic (stale elements, closed connections, etc.)
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("  engagement recovered from panic: %v", r)
+			err = nil // don't propagate — partial engagement is fine
+		}
+	}()
 
+	topic := topics[time.Now().UnixNano()%int64(len(topics))]
 	fmt.Printf("Launching browser for social engagement (topic: %q)...\n", topic)
 
-	browser, page, err := c.launchSession()
-	if err != nil {
-		return 0, err
+	browser, page, launchErr := c.launchSession()
+	if launchErr != nil {
+		return 0, launchErr
 	}
 	defer browser.MustClose()
 
-	// Navigate to search results — Latest tab for fresh content
 	searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query&f=live"
-	page.MustNavigate(searchURL)
-	page.MustWaitLoad()
-	time.Sleep(4 * time.Second)
 
 	engaged := 0
 	seen := map[string]bool{}
 
-	// Scroll and engage — up to 3 scroll passes
 	for pass := 0; pass < 3 && engaged < maxPosts; pass++ {
-		// Collect tweet articles on the page
+		// Always navigate fresh to search on each pass — avoids stale elements
+		page.MustNavigate(searchURL)
+		page.MustWaitLoad()
+		time.Sleep(3 * time.Second)
+
+		// Scroll a bit on passes > 0 to get different results
+		if pass > 0 {
+			page.MustEval(`() => window.scrollBy(0, window.innerHeight * 3)`)
+			time.Sleep(2 * time.Second)
+		}
+
 		articles, _ := page.Elements(`article[data-testid="tweet"]`)
 
 		for _, article := range articles {
@@ -601,7 +607,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 				break
 			}
 
-			// Extract tweet permalink to deduplicate
+			// Extract tweet permalink
 			links, _ := article.Elements(`a[href*="/status/"]`)
 			tweetPath := ""
 			for _, l := range links {
@@ -614,15 +620,12 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 			if tweetPath == "" || seen[tweetPath] {
 				continue
 			}
-
-			// Skip our own tweets
 			if strings.Contains(strings.ToLower(tweetPath), strings.ToLower(c.username)) {
 				continue
 			}
-
 			seen[tweetPath] = true
 
-			// Extract tweet text for comment generation
+			// Extract tweet text
 			tweetText := ""
 			if textEl, err := article.Element(`[data-testid="tweetText"]`); err == nil {
 				tweetText, _ = textEl.Text()
@@ -631,23 +634,29 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 			// ── Like ──────────────────────────────────────────────────────────
 			likeBtn, err := article.Element(`[data-testid="like"]`)
 			if err != nil {
-				continue // can't find like button — skip this tweet
+				continue
 			}
 			likeBtn.MustEval(`() => this.click()`)
 			time.Sleep(800 * time.Millisecond)
 			fmt.Printf("  ✓ liked: %s\n", tweetPath)
+			engaged++
 
-			// ── Comment ───────────────────────────────────────────────────────
+			// ── Comment — navigate to tweet page, reply, come back ────────────
 			if commentFn != nil && tweetText != "" {
 				comment := commentFn(tweetText)
 				if comment != "" {
 					tweetURL := "https://x.com" + tweetPath
-					if _, err := c.replyInSession(page, article, comment); err != nil {
-						log.Printf("  comment failed: %v", err)
+					if _, replyErr := c.ReplyTo(tweetURL, comment); replyErr != nil {
+						log.Printf("  comment failed: %v", replyErr)
 					} else {
 						fmt.Printf("  ✓ commented on %s\n", tweetURL)
 					}
-					time.Sleep(2 * time.Second)
+					// Navigate back to search after replying
+					page.MustNavigate(searchURL)
+					page.MustWaitLoad()
+					time.Sleep(3 * time.Second)
+					// Re-collect articles after navigation — break inner loop
+					break
 				}
 			}
 
@@ -665,14 +674,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 				}
 			}
 
-			engaged++
-			time.Sleep(1500 * time.Millisecond) // pace between engagements
-		}
-
-		if engaged < maxPosts {
-			// Scroll down for more results
-			page.MustEval(`() => window.scrollBy(0, window.innerHeight * 2)`)
-			time.Sleep(2 * time.Second)
+			time.Sleep(1500 * time.Millisecond)
 		}
 	}
 
@@ -680,8 +682,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 	return engaged, nil
 }
 
-// replyInSession posts a reply to a tweet article already on the page,
-// reusing the existing browser session.
+// replyInSession is kept for potential reuse but EngageWithTopic now uses ReplyTo instead.
 func (c *Client) replyInSession(page *rod.Page, article *rod.Element, comment string) (string, error) {
 	replyBtn, err := article.Element(`[data-testid="reply"]`)
 	if err != nil {
