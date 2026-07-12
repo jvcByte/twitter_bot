@@ -640,7 +640,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 		time.Sleep(800 * time.Millisecond)
 		fmt.Printf("  ✓ liked: %s\n", tweetURL)
 
-		// ── Comment ───────────────────────────────────────────────────────────
+		// ── Comment (always) ─────────────────────────────────────────────────
 		if commentFn != nil {
 			tweetText := ""
 			if textEl, err := page.Timeout(5*time.Second).Element(`[data-testid="tweetText"]`); err == nil {

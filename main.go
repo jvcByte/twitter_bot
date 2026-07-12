@@ -313,10 +313,6 @@ func runEngagement(client *twitter.Client, cfg *config.Config) {
 		if cfg.GroqAPIKey == "" || len(tweetText) < 20 {
 			return ""
 		}
-		// ~50% chance to comment — not every like needs a comment
-		if time.Now().UnixNano()%2 == 0 {
-			return ""
-		}
 		comment, err := content.GenerateEngagementComment(cfg.GroqAPIKey, tweetText)
 		if err != nil || comment == "" {
 			return ""
