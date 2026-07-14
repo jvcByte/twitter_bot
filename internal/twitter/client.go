@@ -537,9 +537,10 @@ func (c *Client) login(page *rod.Page) error {
 	}
 
 	fmt.Println("  logging in with username/password...")
-	page.MustNavigate("https://x.com/i/flow/login")
+	// Navigate to the public login page — X will redirect to the appropriate flow
+	page.MustNavigate("https://x.com/login")
 	page.MustWaitLoad()
-	time.Sleep(4 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Username field — X renders this as a generic text input in a React form.
 	// Try multiple selectors to handle different X UI versions.
