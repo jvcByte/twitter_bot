@@ -8,48 +8,49 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config holds all runtime configuration loaded from environment variables.
 type Config struct {
 	TwitterUsername string
 	TwitterPassword string
 
-	// Path to the feeds JSON file (default: data/rss_feeds.json)
+	// FeedsFile is the path to the JSON feeds file.
 	FeedsFile string
 
-	// Category filter — empty means all categories
-	// e.g. "tech", "cybersecurity", "world" — matches category field in rss_feeds.json
+	// Category filters by category field in the feeds file. Empty = all.
 	Category string
 
-	// How often to poll all feeds
+	// PollInterval is how often to poll feeds in continuous mode.
 	PollInterval time.Duration
 
-	// Ignore articles older than this
+	// MaxArticleAge ignores articles older than this.
 	MaxArticleAge time.Duration
 
-	// Minimum gap between tweets to avoid rate limits
+	// TweetDelay is the minimum gap between consecutive tweets.
 	TweetDelay time.Duration
 
-	// Max tweets per run (0 = unlimited)
+	// MaxTweetsPerRun caps tweets per run. 0 = unlimited.
 	MaxTweetsPerRun int
 
-	// POST_MODE controls content type: "news", "meme", or "mixed"
+	// PostMode controls content type: news | meme | mixed | creator | engage
 	PostMode string
 
-	// Groq API key for AI-generated meme/humor posts
+	// GroqAPIKey is the Groq API key for LLM calls.
 	GroqAPIKey string
 
-	// Imgflip credentials for meme image generation (free at imgflip.com)
+	// ImgflipUsername and ImgflipPassword are optional meme image credentials.
 	ImgflipUsername string
 	ImgflipPassword string
 }
 
+// Load reads .env and environment variables and returns a populated Config.
 func Load() (*Config, error) {
-	godotenv.Load()
+	godotenv.Load() //nolint — optional, no .env in CI
 
 	return &Config{
 		TwitterUsername: os.Getenv("TWITTER_USERNAME"),
 		TwitterPassword: os.Getenv("TWITTER_PASSWORD"),
 		FeedsFile:       envString("FEEDS_FILE", "data/rss_feeds.json"),
-		Category:        os.Getenv("CATEGORY"), // optional
+		Category:        os.Getenv("CATEGORY"),
 		PollInterval:    envDuration("POLL_INTERVAL_MINUTES", 5) * time.Minute,
 		MaxArticleAge:   envDuration("MAX_ARTICLE_AGE_HOURS", 2) * time.Hour,
 		TweetDelay:      envDuration("TWEET_DELAY_SECONDS", 90) * time.Second,
