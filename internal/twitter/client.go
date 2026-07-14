@@ -617,6 +617,18 @@ func (c *Client) login(page *rod.Page) error {
 	page.MustWaitLoad()
 	time.Sleep(5 * time.Second)
 	page.MustScreenshot("debug_home.png")
+
+	// Check for rate-limit or error message
+	if errEl, _ := page.Timeout(3 * time.Second).Element(`div[data-testid="toast"], [class*="error"], [class*="alert"]`); errEl != nil {
+		if text, _ := errEl.Text(); text != "" {
+			return fmt.Errorf("X login blocked: %s", text)
+		}
+	}
+	// Check if we're still on the login page (login failed silently)
+	if info, _ := page.Info(); info != nil && strings.Contains(info.URL, "/login") {
+		return fmt.Errorf("login failed — X may have rate-limited automated logins. Use TWITTER_COOKIES instead")
+	}
+
 	fmt.Println("  ✓ logged in")
 	return nil
 }
