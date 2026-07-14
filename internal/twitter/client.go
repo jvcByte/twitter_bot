@@ -539,25 +539,33 @@ func (c *Client) login(page *rod.Page) error {
 	fmt.Println("  logging in with username/password...")
 	page.MustNavigate("https://x.com/i/flow/login")
 	page.MustWaitLoad()
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 
-	// Enter username / email
-	usernameInput, err := page.Timeout(20 * time.Second).Element(`input[autocomplete="username"]`)
+	// Username field — X renders this as a generic text input in a React form.
+	// Try multiple selectors to handle different X UI versions.
+	usernameInput, err := findFirstElement(page, 20*time.Second,
+		`input[autocomplete="username"]`,
+		`input[name="text"]`,
+		`input[type="text"]`,
+	)
 	if err != nil {
 		page.MustScreenshot("debug_login.png")
 		return fmt.Errorf("username field not found: %w", err)
 	}
 	usernameInput.MustEval(`() => this.focus()`)
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(400 * time.Millisecond)
 	if err := page.InsertText(c.username); err != nil {
 		return fmt.Errorf("type username: %w", err)
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
 
-	// Click Next
-	nextBtn, err := page.Timeout(10 * time.Second).Element(`[data-testid="LoginForm_Login_Button"], div[role="button"]:has-text("Next")`)
+	// Click Next — try button text first, then data-testid
+	nextBtn, err := findFirstElement(page, 8*time.Second,
+		`[data-testid="LoginForm_Login_Button"]`,
+		`div[role="button"]:has-text("Next")`,
+		`span:has-text("Next")`,
+	)
 	if err != nil {
-		// Try pressing Enter as fallback
 		page.Keyboard.Press(input.Enter) //nolint
 	} else {
 		nextBtn.MustEval(`() => this.click()`)
@@ -566,9 +574,9 @@ func (c *Client) login(page *rod.Page) error {
 
 	// X sometimes asks for email/phone verification between username and password
 	if verify, _ := page.Timeout(5 * time.Second).Element(`input[data-testid="ocfEnterTextTextInput"]`); verify != nil {
-		fmt.Println("  ⚠ X asked for email/phone verification — entering username again")
+		fmt.Println("  ⚠ verification prompt — entering username again")
 		verify.MustEval(`() => this.focus()`)
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(300 * time.Millisecond)
 		page.InsertText(c.username) //nolint
 		time.Sleep(400 * time.Millisecond)
 		if verifyNext, err := page.Timeout(5 * time.Second).Element(`[data-testid="ocfEnterTextNextButton"]`); err == nil {
@@ -577,33 +585,54 @@ func (c *Client) login(page *rod.Page) error {
 		}
 	}
 
-	// Enter password
-	passwordInput, err := page.Timeout(15 * time.Second).Element(`input[name="password"], input[type="password"]`)
+	// Password field
+	passwordInput, err := findFirstElement(page, 15*time.Second,
+		`input[name="password"]`,
+		`input[type="password"]`,
+		`input[autocomplete="current-password"]`,
+	)
 	if err != nil {
 		page.MustScreenshot("debug_login.png")
 		return fmt.Errorf("password field not found: %w", err)
 	}
 	passwordInput.MustEval(`() => this.focus()`)
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(400 * time.Millisecond)
 	if err := page.InsertText(c.password); err != nil {
 		return fmt.Errorf("type password: %w", err)
 	}
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(600 * time.Millisecond)
 
 	// Click Log in
-	loginBtn, err := page.Timeout(10 * time.Second).Element(`[data-testid="LoginForm_Login_Button"]`)
+	loginBtn, err := findFirstElement(page, 8*time.Second,
+		`[data-testid="LoginForm_Login_Button"]`,
+		`div[role="button"]:has-text("Log in")`,
+		`span:has-text("Log in")`,
+	)
 	if err != nil {
 		page.Keyboard.Press(input.Enter) //nolint
 	} else {
 		loginBtn.MustEval(`() => this.click()`)
 	}
 
-	// Wait for home to load
 	page.MustWaitLoad()
 	time.Sleep(5 * time.Second)
 	page.MustScreenshot("debug_home.png")
 	fmt.Println("  ✓ logged in")
 	return nil
+}
+
+// findFirstElement tries a list of CSS selectors in order and returns the first match.
+func findFirstElement(page *rod.Page, timeout time.Duration, selectors ...string) (*rod.Element, error) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		for _, sel := range selectors {
+			if el, err := page.Timeout(1 * time.Second).Element(sel); err == nil {
+				return el, nil
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return nil, fmt.Errorf("none of %v found within %v", selectors, timeout)
 }
 
 func loadCookies(page *rod.Page) error {
