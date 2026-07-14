@@ -529,30 +529,56 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 	return browser, page, nil
 }
 
-// login performs a full username/password login on x.com.
-// Used as fallback when cookies are absent or expired.
+// login performs a full username/password login starting from x.com homepage.
 func (c *Client) login(page *rod.Page) error {
 	if c.username == "" || c.password == "" {
 		return fmt.Errorf("TWITTER_USERNAME and TWITTER_PASSWORD must be set for password login")
 	}
 
 	fmt.Println("  logging in with username/password...")
-	// Navigate to the public login page — X will redirect to the appropriate flow
-	page.MustNavigate("https://x.com/login")
-	page.MustWaitLoad()
-	time.Sleep(5 * time.Second)
 
-	// Username field — X renders this as a generic text input in a React form.
-	// Try multiple selectors to handle different X UI versions.
-	usernameInput, err := findFirstElement(page, 20*time.Second,
+	// Navigate to homepage — X will show its sign-in flow
+	page.MustNavigate("https://x.com/")
+	page.MustWaitLoad()
+	time.Sleep(4 * time.Second)
+
+	// The landing page has an "Email or username" input directly visible
+	// (the new jf-form flow) OR a Sign in button. Try the input first.
+	usernameInput, err := findFirstElement(page, 10*time.Second,
+		`input[name="username_or_email"]`,
+		`input#jf-input-username_or_email`,
 		`input[autocomplete="username"]`,
 		`input[name="text"]`,
-		`input[type="text"]`,
 	)
 	if err != nil {
-		page.MustScreenshot("debug_login.png")
-		return fmt.Errorf("username field not found: %w", err)
+		// No username input visible — look for a Sign in / Log in button
+		signInBtn, btnErr := findFirstElement(page, 8*time.Second,
+			`a[href="/login"]`,
+			`[data-testid="loginButton"]`,
+			`a[href*="login"]`,
+		)
+		if btnErr != nil {
+			page.MustScreenshot("debug_login.png")
+			return fmt.Errorf("neither username input nor sign-in button found: %w", err)
+		}
+		signInBtn.MustEval(`() => this.click()`)
+		time.Sleep(3 * time.Second)
+
+		// Now look for username input again
+		usernameInput, err = findFirstElement(page, 15*time.Second,
+			`input[name="username_or_email"]`,
+			`input#jf-input-username_or_email`,
+			`input[autocomplete="username"]`,
+			`input[name="text"]`,
+			`input[type="text"]`,
+		)
+		if err != nil {
+			page.MustScreenshot("debug_login.png")
+			return fmt.Errorf("username field not found: %w", err)
+		}
 	}
+
+	// Type username
 	usernameInput.MustEval(`() => this.focus()`)
 	time.Sleep(400 * time.Millisecond)
 	if err := page.InsertText(c.username); err != nil {
@@ -560,11 +586,13 @@ func (c *Client) login(page *rod.Page) error {
 	}
 	time.Sleep(600 * time.Millisecond)
 
-	// Click Next — try button text first, then data-testid
+	// Click Next / Continue button
 	nextBtn, err := findFirstElement(page, 8*time.Second,
 		`[data-testid="LoginForm_Login_Button"]`,
 		`div[role="button"]:has-text("Next")`,
+		`p:has-text("Continue")`,
 		`span:has-text("Next")`,
+		`button[type="submit"]`,
 	)
 	if err != nil {
 		page.Keyboard.Press(input.Enter) //nolint
@@ -573,7 +601,7 @@ func (c *Client) login(page *rod.Page) error {
 	}
 	time.Sleep(3 * time.Second)
 
-	// X sometimes asks for email/phone verification between username and password
+	// Handle optional email/phone verification prompt
 	if verify, _ := page.Timeout(5 * time.Second).Element(`input[data-testid="ocfEnterTextTextInput"]`); verify != nil {
 		fmt.Println("  ⚠ verification prompt — entering username again")
 		verify.MustEval(`() => this.focus()`)
@@ -586,8 +614,10 @@ func (c *Client) login(page *rod.Page) error {
 		}
 	}
 
-	// Password field
+	// Enter password — jf-form hides the actual input behind a visual one;
+	// the real input has name="password"
 	passwordInput, err := findFirstElement(page, 15*time.Second,
+		`input[name="password"]:not([style*="opacity: 0"])`,
 		`input[name="password"]`,
 		`input[type="password"]`,
 		`input[autocomplete="current-password"]`,
@@ -596,18 +626,30 @@ func (c *Client) login(page *rod.Page) error {
 		page.MustScreenshot("debug_login.png")
 		return fmt.Errorf("password field not found: %w", err)
 	}
-	passwordInput.MustEval(`() => this.focus()`)
-	time.Sleep(400 * time.Millisecond)
-	if err := page.InsertText(c.password); err != nil {
-		return fmt.Errorf("type password: %w", err)
-	}
+	// Use JS to set value directly in case the field has pointer-events:none
+	page.MustEval(fmt.Sprintf(`() => {
+		const el = document.querySelector('input[name="password"]');
+		if (el) {
+			const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+			nativeInputValueSetter.call(el, %q);
+			el.dispatchEvent(new Event('input', { bubbles: true }));
+			el.dispatchEvent(new Event('change', { bubbles: true }));
+		}
+	}`, c.password))
 	time.Sleep(600 * time.Millisecond)
 
-	// Click Log in
+	// Also try normal focus+type in case JS setter isn't enough
+	passwordInput.MustEval(`() => this.focus()`)
+	page.InsertText(c.password) //nolint
+	time.Sleep(600 * time.Millisecond)
+
+	// Click Log in / Continue
 	loginBtn, err := findFirstElement(page, 8*time.Second,
 		`[data-testid="LoginForm_Login_Button"]`,
 		`div[role="button"]:has-text("Log in")`,
+		`p:has-text("Continue")`,
 		`span:has-text("Log in")`,
+		`button[type="submit"]`,
 	)
 	if err != nil {
 		page.Keyboard.Press(input.Enter) //nolint
@@ -619,15 +661,13 @@ func (c *Client) login(page *rod.Page) error {
 	time.Sleep(5 * time.Second)
 	page.MustScreenshot("debug_home.png")
 
-	// Check if still on login/flow pages — means login failed
+	// Verify login succeeded
 	if info, _ := page.Info(); info != nil {
 		url := info.URL
-		if strings.Contains(url, "/login") || strings.Contains(url, "/flow/login") || strings.Contains(url, "i/flow") {
-			return fmt.Errorf("login failed — X may have rate-limited automated logins. Use TWITTER_COOKIES instead")
+		if strings.Contains(url, "/login") || strings.Contains(url, "/flow/login") || strings.Contains(url, "i/flow") || strings.Contains(url, "i/jf") {
+			return fmt.Errorf("login failed — still on login page. Use TWITTER_COOKIES instead")
 		}
 	}
-
-	// Check for rate-limit text anywhere on the page
 	if body, err := page.Eval(`() => document.body.innerText`); err == nil {
 		text := strings.ToLower(body.Value.String())
 		if strings.Contains(text, "temporarily limited") || strings.Contains(text, "too many attempts") {
