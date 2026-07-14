@@ -496,22 +496,114 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 	page := browser.MustPage("")
 	page.MustEval(`() => Object.defineProperty(navigator, 'webdriver', { get: () => undefined })`)
 
+	fmt.Println("Loading session...")
+
+	// Try cookies first; fall back to username/password login
 	if err := loadCookies(page); err != nil {
-		browser.MustClose()
-		return nil, nil, fmt.Errorf("load cookies: %w", err)
+		fmt.Printf("  cookies unavailable (%v) — logging in with username/password\n", err)
+		if loginErr := c.login(page); loginErr != nil {
+			browser.MustClose()
+			return nil, nil, fmt.Errorf("login failed: %w", loginErr)
+		}
+	} else {
+		page.MustNavigate("https://x.com/home")
+		page.MustWaitLoad()
+		time.Sleep(4 * time.Second)
+		page.MustScreenshot("debug_home.png")
+
+		// If cookies are stale the home button won't be there — fall back to login
+		if _, err := page.Timeout(10 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`); err != nil {
+			fmt.Println("  session stale — logging in with username/password")
+			if loginErr := c.login(page); loginErr != nil {
+				browser.MustClose()
+				return nil, nil, fmt.Errorf("login failed: %w", loginErr)
+			}
+		}
 	}
 
-	fmt.Println("Loading session...")
-	page.MustNavigate("https://x.com/home")
-	page.MustWaitLoad()
-	time.Sleep(4 * time.Second)
-	page.MustScreenshot("debug_home.png")
-
+	// Final session check
 	if _, err := page.Timeout(15 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`); err != nil {
 		browser.MustClose()
-		return nil, nil, fmt.Errorf("session invalid — refresh TWITTER_COOKIES: %w", err)
+		return nil, nil, fmt.Errorf("session invalid after login attempt: %w", err)
 	}
 	return browser, page, nil
+}
+
+// login performs a full username/password login on x.com.
+// Used as fallback when cookies are absent or expired.
+func (c *Client) login(page *rod.Page) error {
+	if c.username == "" || c.password == "" {
+		return fmt.Errorf("TWITTER_USERNAME and TWITTER_PASSWORD must be set for password login")
+	}
+
+	fmt.Println("  logging in with username/password...")
+	page.MustNavigate("https://x.com/i/flow/login")
+	page.MustWaitLoad()
+	time.Sleep(3 * time.Second)
+
+	// Enter username / email
+	usernameInput, err := page.Timeout(20 * time.Second).Element(`input[autocomplete="username"]`)
+	if err != nil {
+		page.MustScreenshot("debug_login.png")
+		return fmt.Errorf("username field not found: %w", err)
+	}
+	usernameInput.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+	if err := page.InsertText(c.username); err != nil {
+		return fmt.Errorf("type username: %w", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	// Click Next
+	nextBtn, err := page.Timeout(10 * time.Second).Element(`[data-testid="LoginForm_Login_Button"], div[role="button"]:has-text("Next")`)
+	if err != nil {
+		// Try pressing Enter as fallback
+		page.Keyboard.Press(input.Enter) //nolint
+	} else {
+		nextBtn.MustEval(`() => this.click()`)
+	}
+	time.Sleep(3 * time.Second)
+
+	// X sometimes asks for email/phone verification between username and password
+	if verify, _ := page.Timeout(5 * time.Second).Element(`input[data-testid="ocfEnterTextTextInput"]`); verify != nil {
+		fmt.Println("  ⚠ X asked for email/phone verification — entering username again")
+		verify.MustEval(`() => this.focus()`)
+		time.Sleep(200 * time.Millisecond)
+		page.InsertText(c.username) //nolint
+		time.Sleep(400 * time.Millisecond)
+		if verifyNext, err := page.Timeout(5 * time.Second).Element(`[data-testid="ocfEnterTextNextButton"]`); err == nil {
+			verifyNext.MustEval(`() => this.click()`)
+			time.Sleep(2 * time.Second)
+		}
+	}
+
+	// Enter password
+	passwordInput, err := page.Timeout(15 * time.Second).Element(`input[name="password"], input[type="password"]`)
+	if err != nil {
+		page.MustScreenshot("debug_login.png")
+		return fmt.Errorf("password field not found: %w", err)
+	}
+	passwordInput.MustEval(`() => this.focus()`)
+	time.Sleep(300 * time.Millisecond)
+	if err := page.InsertText(c.password); err != nil {
+		return fmt.Errorf("type password: %w", err)
+	}
+	time.Sleep(500 * time.Millisecond)
+
+	// Click Log in
+	loginBtn, err := page.Timeout(10 * time.Second).Element(`[data-testid="LoginForm_Login_Button"]`)
+	if err != nil {
+		page.Keyboard.Press(input.Enter) //nolint
+	} else {
+		loginBtn.MustEval(`() => this.click()`)
+	}
+
+	// Wait for home to load
+	page.MustWaitLoad()
+	time.Sleep(5 * time.Second)
+	page.MustScreenshot("debug_home.png")
+	fmt.Println("  ✓ logged in")
+	return nil
 }
 
 func loadCookies(page *rod.Page) error {
