@@ -47,7 +47,7 @@ jobs:
           TWEET_DELAY_SECONDS: ${{ vars.TWEET_DELAY_SECONDS }}
           MAX_TWEETS_PER_RUN: ${{ vars.MAX_TWEETS_PER_RUN }}
           RUN_ONCE: "true"
-        run: go run main.go
+        run: go run ./cmd/bot/
 
       - name: Upload screenshots
         if: always()

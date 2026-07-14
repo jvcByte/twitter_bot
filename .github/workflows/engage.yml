@@ -39,7 +39,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           POST_MODE: engage
           RUN_ONCE: "true"
-        run: go run main.go
+        run: go run ./cmd/bot/
 
       - name: Upload screenshots
         if: always()
