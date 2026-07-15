@@ -60,8 +60,8 @@ jobs:
       - name: Commit state files
         if: always()
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "jvcByte"
+          git config user.email "jvc8463@gmail.com"
           git add data/seen_articles.json data/rotation_state.json data/seen_creator.json
           git diff --staged --quiet || git commit -m "chore: update bot state [skip ci]"
           git push
