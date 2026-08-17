@@ -49,19 +49,19 @@ var providers = []llmProvider{
 		name:   "Cerebras",
 		envKey: "CEREBRAS_API_KEY",
 		url:    "https://api.cerebras.ai/v1/chat/completions",
-		model:  "llama-3.3-70b",
+		model:  "gpt-oss-120b",
 	},
 	{
 		name:   "Gemini",
 		envKey: "GEMINI_API_KEY",
 		url:    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:  "gemini-2.0-flash",
+		model:  "gemini-3.6-flash",
 	},
 	{
 		name:   "OpenRouter",
 		envKey: "OPENROUTER_API_KEY",
 		url:    "https://openrouter.ai/api/v1/chat/completions",
-		model:  "meta-llama/llama-3.3-70b-instruct:free",
+		model:  "deepseek/deepseek-v3-0324:free",
 	},
 	{
 		name:   "Groq",
