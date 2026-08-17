@@ -165,12 +165,20 @@ func RunEngagement(client *twitter.Client, cfg *config.Config) {
 	fmt.Println("→ [engage] searching for relevant posts...")
 
 	commentFn := func(tweetText string) string {
-		if cfg.GroqAPIKey == "" || len(tweetText) < 20 {
+		if cfg.GroqAPIKey == "" {
+			log.Printf("  ⚠ GROQ_API_KEY not set — skipping comments")
+			return ""
+		}
+		if len(tweetText) < 20 {
 			return ""
 		}
 		comment, err := generation.GenerateEngagementComment(cfg.GroqAPIKey, tweetText)
 		if err != nil {
+			log.Printf("  ⚠ comment generation failed: %v", err)
 			return ""
+		}
+		if comment == "" {
+			log.Printf("  ⚠ comment generation returned empty string")
 		}
 		return comment
 	}

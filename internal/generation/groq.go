@@ -32,7 +32,8 @@ type groqResponse struct {
 	} `json:"choices"`
 }
 
-const groqModel = "llama-3.3-70b-versatile"
+const groqModel = "qwen/qwen3.6-27b"       // primary — verified available Aug 2026
+const groqModelFallback = "openai/gpt-oss-20b" // fast fallback
 const groqEndpoint = "https://api.groq.com/openai/v1/chat/completions"
 
 // knownHandles is a curated list of verified accounts the LLM may tag.
@@ -78,7 +79,17 @@ func CallGroqWithSystem(apiKey, systemPrompt, userPrompt string, maxTokens int) 
 }
 
 // callRaw executes a groqRequest and returns the first choice's content.
+// On model-not-found (404), retries once with the fallback model.
 func callRaw(apiKey string, req groqRequest) (string, error) {
+	result, err := callRawOnce(apiKey, req)
+	if err != nil && strings.Contains(err.Error(), "model_not_found") && req.Model != groqModelFallback {
+		req.Model = groqModelFallback
+		return callRawOnce(apiKey, req)
+	}
+	return result, err
+}
+
+func callRawOnce(apiKey string, req groqRequest) (string, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
