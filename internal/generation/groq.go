@@ -125,7 +125,14 @@ func callRawOnce(apiKey string, req groqRequest) (string, error) {
 	if len(gr.Choices) == 0 {
 		return "", fmt.Errorf("empty response from groq")
 	}
-	return stripThinking(gr.Choices[0].Message.Content), nil
+	raw := gr.Choices[0].Message.Content
+	result := stripThinking(raw)
+	if result == "" && raw != "" {
+		// stripThinking removed everything — return raw content as fallback
+		// (better to have a thinking-prefixed reply than nothing)
+		result = strings.TrimSpace(raw)
+	}
+	return result, nil
 }
 
 // TruncateTweet strips markdown artifacts and trims to max runes (not bytes).
@@ -139,21 +146,33 @@ func TruncateTweet(s string, max int) string {
 }
 
 // stripThinking removes Qwen3 <think>...</think> reasoning blocks from output.
+// If the entire response is wrapped in a think block, returns the content inside
+// rather than an empty string (graceful degradation).
 func stripThinking(s string) string {
+	result := s
 	for {
-		start := strings.Index(s, "<think>")
+		start := strings.Index(result, "<think>")
 		if start == -1 {
 			break
 		}
-		end := strings.Index(s, "</think>")
+		end := strings.Index(result, "</think>")
 		if end == -1 {
-			// Unclosed tag — strip everything from <think> onward
-			s = strings.TrimSpace(s[:start])
+			// Unclosed tag — everything after <think> is reasoning, strip it
+			result = strings.TrimSpace(result[:start])
 			break
 		}
-		s = s[:start] + s[end+len("</think>"):]
+		result = result[:start] + result[end+len("</think>"):]
 	}
-	return strings.TrimSpace(s)
+	result = strings.TrimSpace(result)
+	// If stripping left nothing but the original had content, the model wrapped
+	// its entire answer in thinking — extract the last paragraph as the reply
+	if result == "" && s != "" {
+		end := strings.LastIndex(s, "</think>")
+		if end != -1 && end+len("</think>") < len(s) {
+			result = strings.TrimSpace(s[end+len("</think>"):])
+		}
+	}
+	return result
 }
 
 // StripMarkdown removes common markdown formatting that LLMs leak into output.
