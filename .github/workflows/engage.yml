@@ -38,7 +38,7 @@ jobs:
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           POST_MODE: engage
-          RUN_ONCE: "true"
+          RUN_ONCE: "false"
         run: go run ./cmd/bot/
 
       - name: Upload screenshots
