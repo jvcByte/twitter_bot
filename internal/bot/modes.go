@@ -109,7 +109,7 @@ func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, 
 	}
 	fmt.Printf("→ [AI %s] %s\n", formatName, post)
 
-	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsTextOnly(formatName))
+	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsTextOnly(formatName) && !cfg.DisableImages)
 	if tweetURL != "" {
 		selfEngage(client, cfg, tweetURL, post)
 	}
@@ -145,7 +145,7 @@ func RunCreator(client *twitter.Client, cfg *config.Config) {
 	}
 	fmt.Printf("→ [creator %s] %s\n", formatName, post)
 
-	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsCreatorTextOnly(formatName))
+	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsCreatorTextOnly(formatName) && !cfg.DisableImages)
 	if tweetURL != "" {
 		selfEngage(client, cfg, tweetURL, post)
 	}
@@ -262,7 +262,7 @@ func postArticle(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 	fmt.Printf("  tweet: %s\n", headline)
 
 	imgPath, _ := feeds.DownloadImage(a.ImageURL)
-	if imgPath == "" {
+	if imgPath == "" && !cfg.DisableImages {
 		var err error
 		imgPath, err = images.Pollinations(cfg.GroqAPIKey, headline)
 		if err != nil {

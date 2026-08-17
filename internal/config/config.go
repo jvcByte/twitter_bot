@@ -40,6 +40,10 @@ type Config struct {
 	// ImgflipUsername and ImgflipPassword are optional meme image credentials.
 	ImgflipUsername string
 	ImgflipPassword string
+
+	// DisableImages skips all image generation when true.
+	// Set DISABLE_IMAGES=true to post text-only.
+	DisableImages bool
 }
 
 // Load reads .env and environment variables and returns a populated Config.
@@ -59,6 +63,7 @@ func Load() (*Config, error) {
 		GroqAPIKey:      os.Getenv("GROQ_API_KEY"),
 		ImgflipUsername: os.Getenv("IMGFLIP_USERNAME"),
 		ImgflipPassword: os.Getenv("IMGFLIP_PASSWORD"),
+		DisableImages:   os.Getenv("DISABLE_IMAGES") == "true",
 	}, nil
 }
 
