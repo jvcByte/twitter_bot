@@ -146,33 +146,55 @@ func TruncateTweet(s string, max int) string {
 }
 
 // stripThinking removes Qwen3 <think>...</think> reasoning blocks from output.
-// If the entire response is wrapped in a think block, returns the content inside
-// rather than an empty string (graceful degradation).
+// Handles all cases: closed blocks, unclosed blocks, and answer inside thinking.
 func stripThinking(s string) string {
+	// Case 1: proper <think>...</think> — strip the block, keep what follows
 	result := s
 	for {
 		start := strings.Index(result, "<think>")
 		if start == -1 {
 			break
 		}
-		end := strings.Index(result, "</think>")
+		end := strings.Index(result[start:], "</think>")
 		if end == -1 {
-			// Unclosed tag — everything after <think> is reasoning, strip it
-			result = strings.TrimSpace(result[:start])
-			break
+			// Case 2: unclosed <think> — the "answer" is the last non-empty
+			// line(s) inside the block (Qwen puts answer at end of thinking)
+			thinking := result[start+len("<think>"):]
+			result = extractLastLines(thinking)
+			return strings.TrimSpace(result)
 		}
-		result = result[:start] + result[end+len("</think>"):]
+		absEnd := start + end + len("</think>")
+		result = result[:start] + result[absEnd:]
 	}
 	result = strings.TrimSpace(result)
-	// If stripping left nothing but the original had content, the model wrapped
-	// its entire answer in thinking — extract the last paragraph as the reply
-	if result == "" && s != "" {
-		end := strings.LastIndex(s, "</think>")
-		if end != -1 && end+len("</think>") < len(s) {
-			result = strings.TrimSpace(s[end+len("</think>"):])
+	return result
+}
+
+// extractLastLines returns the last 1-3 meaningful lines of a string —
+// used to pull the actual answer out of an unclosed think block.
+func extractLastLines(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	var meaningful []string
+	for i := len(lines) - 1; i >= 0 && len(meaningful) < 3; i-- {
+		line := strings.TrimSpace(lines[i])
+		// Skip reasoning meta-lines that start with numbered steps or bullets
+		if line == "" || strings.HasPrefix(line, "1.") || strings.HasPrefix(line, "2.") ||
+			strings.HasPrefix(line, "3.") || strings.HasPrefix(line, "-") ||
+			strings.HasPrefix(line, "*") || strings.HasPrefix(line, "Here") ||
+			strings.HasPrefix(line, "Analyze") || strings.HasPrefix(line, "The") {
+			continue
+		}
+		meaningful = append([]string{line}, meaningful...)
+	}
+	if len(meaningful) == 0 {
+		// All lines looked like reasoning — just take the last non-empty line
+		for i := len(lines) - 1; i >= 0; i-- {
+			if line := strings.TrimSpace(lines[i]); line != "" {
+				return line
+			}
 		}
 	}
-	return result
+	return strings.Join(meaningful, " ")
 }
 
 // StripMarkdown removes common markdown formatting that LLMs leak into output.
