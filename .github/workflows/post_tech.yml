@@ -2,7 +2,7 @@ name: Post Tech Tweet
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # every 6 hours (4x/day)
+    - cron: '0 3,9,15,21 * * *'  # every 6 hours, offset 3h from post.yml
   workflow_dispatch:
 
 jobs:

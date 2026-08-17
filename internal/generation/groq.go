@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -52,6 +53,7 @@ const defaultSystemPrompt = "You are a sharp, witty tech personality on X (Twitt
 	"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
 	"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
 	"You favor AI tools, security threats, coding culture, and tech career topics. " +
+	"NEVER use markdown formatting — no **bold**, no _italic_, no bullet points, no headers. Plain text only. " +
 	"Never add explanations or quotes around the tweet. " +
 	"Add 1-2 relevant hashtags at the end (e.g. #AI #CyberSecurity #DevLife #Coding). " +
 	"ONLY tag someone if the post is directly about them or their work, and ONLY use handles from this verified list: " + knownHandles +
@@ -114,21 +116,43 @@ func callRaw(apiKey string, req groqRequest) (string, error) {
 	return gr.Choices[0].Message.Content, nil
 }
 
-// TruncateTweet trims a string to fit within Twitter's 280 char limit.
+// TruncateTweet strips markdown artifacts and trims to max runes (not bytes).
 func TruncateTweet(s string, max int) string {
-	s = trimQuotes(s)
-	if len(s) > max {
-		return s[:max-3] + "..."
+	s = StripMarkdown(trimQuotes(s))
+	runes := []rune(s)
+	if len(runes) > max {
+		return string(runes[:max-3]) + "..."
 	}
 	return s
 }
 
+// StripMarkdown removes common markdown formatting that LLMs leak into output.
+func StripMarkdown(s string) string {
+	// Remove bold/italic markers: ** __ * _
+	replacer := strings.NewReplacer(
+		"**", "",
+		"__", "",
+		"~~", "",
+	)
+	s = replacer.Replace(s)
+	// Remove single * and _ only when used as emphasis (not in usernames/emojis)
+	// Simple approach: strip leading/trailing * or _ from each word
+	words := strings.Fields(s)
+	for i, w := range words {
+		w = strings.TrimLeft(w, "*_`")
+		w = strings.TrimRight(w, "*_`")
+		words[i] = w
+	}
+	return strings.Join(words, " ")
+}
+
 func trimQuotes(s string) string {
-	for len(s) > 0 && (s[0] == '"' || s[0] == ' ') {
+	s = strings.TrimSpace(s)
+	for len(s) > 0 && (s[0] == '"' || s[0] == '\'') {
 		s = s[1:]
 	}
-	for len(s) > 0 && (s[len(s)-1] == '"' || s[len(s)-1] == ' ') {
+	for len(s) > 0 && (s[len(s)-1] == '"' || s[len(s)-1] == '\'') {
 		s = s[:len(s)-1]
 	}
-	return s
+	return strings.TrimSpace(s)
 }

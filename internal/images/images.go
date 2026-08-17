@@ -79,13 +79,13 @@ Rules:
 func extractKeywords(text string) string {
 	lower := strings.ToLower(text)
 	switch {
-	case strings.ContainsAny(lower, "hack breach malware"):
+	case strings.Contains(lower, "hack") || strings.Contains(lower, "breach") || strings.Contains(lower, "malware"):
 		return "cybersecurity hacker dark digital art cinematic"
-	case strings.ContainsAny(lower, "ai machine learning model"):
+	case strings.Contains(lower, " ai ") || strings.Contains(lower, "machine learning") || strings.Contains(lower, "neural"):
 		return "artificial intelligence neural network futuristic glowing circuits digital art"
-	case strings.ContainsAny(lower, "security threat vulnerab"):
+	case strings.Contains(lower, "security") || strings.Contains(lower, "threat") || strings.Contains(lower, "vulnerab"):
 		return "cybersecurity shield lock protection digital art dark blue"
-	case strings.ContainsAny(lower, "data privacy"):
+	case strings.Contains(lower, "data") || strings.Contains(lower, "privacy"):
 		return "data privacy encryption secure digital art holographic"
 	default:
 		return "technology futuristic digital art cinematic lighting"
@@ -121,7 +121,8 @@ func fetchPollinations(prompt string) (string, error) {
 	}
 	defer f.Close()
 
-	if _, err := io.Copy(f, resp.Body); err != nil {
+	const maxImageSize = 10 << 20 // 10 MB
+	if _, err := io.Copy(f, io.LimitReader(resp.Body, maxImageSize)); err != nil {
 		os.Remove(f.Name())
 		return "", fmt.Errorf("write: %w", err)
 	}

@@ -224,7 +224,6 @@ func saveSlot(slot int) {
 func runRotation(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) {
 	slot := loadSlot()
 	contentType := rotationSlots[slot]
-	saveSlot((slot + 1) % len(rotationSlots))
 	fmt.Printf("  rotation slot %d/%d → %s\n", slot+1, len(rotationSlots), contentType)
 
 	switch contentType {
@@ -237,6 +236,9 @@ func runRotation(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 	case "engage":
 		RunEngagement(client, cfg)
 	}
+
+	// Advance slot after execution — not before, so a crash doesn't skip a slot
+	saveSlot((slot + 1) % len(rotationSlots))
 }
 
 func runNewsOne(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) {
