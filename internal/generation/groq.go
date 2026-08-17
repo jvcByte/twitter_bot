@@ -1,4 +1,6 @@
-// Package generation handles all LLM-based content generation via Groq.
+// Package generation handles all LLM-based content generation.
+// Provider priority: Cerebras → Gemini → OpenRouter → Groq
+// All providers use the OpenAI-compatible chat completions format.
 package generation
 
 import (
@@ -7,17 +9,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
 
-// groqMessage is a single message in a Groq chat completion request.
+// groqMessage is a single message in a chat completion request.
 type groqMessage struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
-// groqRequest is the Groq chat completion request body.
+// groqRequest is the chat completion request body (OpenAI-compatible).
 type groqRequest struct {
 	Model       string        `json:"model"`
 	Messages    []groqMessage `json:"messages"`
@@ -25,19 +28,50 @@ type groqRequest struct {
 	Temperature float64       `json:"temperature"`
 }
 
-// groqResponse is the Groq chat completion response body.
+// groqResponse is the chat completion response body.
 type groqResponse struct {
 	Choices []struct {
 		Message groqMessage `json:"message"`
 	} `json:"choices"`
 }
 
-const groqModel = "openai/gpt-oss-20b"   // primary — no chain-of-thought issues
-const groqModelFallback = "qwen/qwen3.6-27b" // fallback
-const groqEndpoint = "https://api.groq.com/openai/v1/chat/completions"
+// llmProvider defines an OpenAI-compatible LLM endpoint.
+type llmProvider struct {
+	name   string
+	envKey string
+	url    string
+	model  string
+}
+
+// providers are tried in order until one succeeds.
+var providers = []llmProvider{
+	{
+		name:   "Cerebras",
+		envKey: "CEREBRAS_API_KEY",
+		url:    "https://api.cerebras.ai/v1/chat/completions",
+		model:  "llama-3.3-70b",
+	},
+	{
+		name:   "Gemini",
+		envKey: "GEMINI_API_KEY",
+		url:    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+		model:  "gemini-2.0-flash",
+	},
+	{
+		name:   "OpenRouter",
+		envKey: "OPENROUTER_API_KEY",
+		url:    "https://openrouter.ai/api/v1/chat/completions",
+		model:  "meta-llama/llama-3.3-70b-instruct:free",
+	},
+	{
+		name:   "Groq",
+		envKey: "GROQ_API_KEY",
+		url:    "https://api.groq.com/openai/v1/chat/completions",
+		model:  "openai/gpt-oss-20b",
+	},
+}
 
 // knownHandles is a curated list of verified accounts the LLM may tag.
-// Never invent handles outside this list.
 const knownHandles = `
 AI/ML: @OpenAI @AnthropicAI @GoogleDeepMind @sama @karpathy @ylecun @GaryMarcus @emollick @swyx @goodside @xAI @grok
 Cybersecurity: @briankrebs @schneierblog @threatpost @DarkReading @troyhunt @SwiftOnSecurity @thegrugq @taviso
@@ -54,48 +88,59 @@ const defaultSystemPrompt = "You are a sharp, witty tech personality on X (Twitt
 	"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
 	"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
 	"You favor AI tools, security threats, coding culture, and tech career topics. " +
-	"NEVER use markdown formatting — no **bold**, no _italic_, no bullet points, no headers. Plain text only. " +
+	"NEVER use markdown formatting — no **bold**, no _italic_, no bullet points, no backticks as emphasis. " +
 	"Never add explanations or quotes around the tweet. " +
 	"Add 1-2 relevant hashtags at the end (e.g. #AI #CyberSecurity #DevLife #Coding). " +
 	"ONLY tag someone if the post is directly about them or their work, and ONLY use handles from this verified list: " + knownHandles +
 	" Never invent or guess handles. Just output the raw tweet text."
 
-// CallGroq calls Groq with the default AI/security system prompt.
+// CallGroq calls with the default AI/security system prompt.
+// Name kept for backward compatibility.
 func CallGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
 	return CallGroqWithSystem(apiKey, defaultSystemPrompt, userPrompt, maxTokens)
 }
 
-// CallGroqWithSystem calls Groq with a custom system prompt.
-func CallGroqWithSystem(apiKey, systemPrompt, userPrompt string, maxTokens int) (string, error) {
-	return callRaw(apiKey, groqRequest{
-		Model: groqModel,
+// CallGroqWithSystem calls with a custom system prompt, trying all providers in order.
+// apiKey is accepted for backward compat but providers read keys from env directly.
+func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (string, error) {
+	req := groqRequest{
 		Messages: []groqMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
 		MaxTokens:   maxTokens,
 		Temperature: 0.85,
-	})
-}
-
-// callRaw executes a groqRequest and returns the first choice's content.
-// On model-not-found (404), retries once with the fallback model.
-func callRaw(apiKey string, req groqRequest) (string, error) {
-	result, err := callRawOnce(apiKey, req)
-	if err != nil && strings.Contains(err.Error(), "model_not_found") && req.Model != groqModelFallback {
-		req.Model = groqModelFallback
-		return callRawOnce(apiKey, req)
 	}
-	return result, err
+
+	var lastErr error
+	for _, p := range providers {
+		key := os.Getenv(p.envKey)
+		if key == "" {
+			continue
+		}
+		req.Model = p.model
+		result, err := callEndpoint(key, p.url, req)
+		if err != nil {
+			fmt.Printf("  ⚠ %s LLM failed: %v\n", p.name, err)
+			lastErr = err
+			continue
+		}
+		return stripThinking(result), nil
+	}
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", fmt.Errorf("no LLM API keys configured (set CEREBRAS_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, or GROQ_API_KEY)")
 }
 
-func callRawOnce(apiKey string, req groqRequest) (string, error) {
+// callEndpoint sends a request to any OpenAI-compatible endpoint.
+func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", groqEndpoint, bytes.NewBuffer(data))
+	httpReq, err := http.NewRequest("POST", endpointURL, bytes.NewBuffer(data))
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -105,30 +150,29 @@ func callRawOnce(apiKey string, req groqRequest) (string, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("groq request: %w", err)
+		return "", fmt.Errorf("request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return "", fmt.Errorf("read: %w", err)
 	}
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("groq API error (%d): %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
 	}
 
 	var gr groqResponse
 	if err := json.Unmarshal(body, &gr); err != nil {
-		return "", fmt.Errorf("parse response: %w", err)
+		return "", fmt.Errorf("parse: %w", err)
 	}
 	if len(gr.Choices) == 0 {
-		return "", fmt.Errorf("empty response from groq")
+		return "", fmt.Errorf("empty response")
 	}
+
 	raw := gr.Choices[0].Message.Content
 	result := stripThinking(raw)
 	if result == "" && raw != "" {
-		// stripThinking removed everything — return raw content as fallback
-		// (better to have a thinking-prefixed reply than nothing)
 		result = strings.TrimSpace(raw)
 	}
 	return result, nil
@@ -136,7 +180,7 @@ func callRawOnce(apiKey string, req groqRequest) (string, error) {
 
 // TruncateTweet strips markdown artifacts and trims to max runes (not bytes).
 func TruncateTweet(s string, max int) string {
-	s = StripMarkdown(trimQuotes(s))
+	s = StripMarkdown(stripThinking(trimQuotes(s)))
 	runes := []rune(s)
 	if len(runes) > max {
 		return string(runes[:max-3]) + "..."
@@ -144,69 +188,10 @@ func TruncateTweet(s string, max int) string {
 	return s
 }
 
-// stripThinking removes Qwen3 <think>...</think> reasoning blocks from output.
-// Handles all cases: closed blocks, unclosed blocks, and answer inside thinking.
-func stripThinking(s string) string {
-	// Case 1: proper <think>...</think> — strip the block, keep what follows
-	result := s
-	for {
-		start := strings.Index(result, "<think>")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(result[start:], "</think>")
-		if end == -1 {
-			// Case 2: unclosed <think> — the "answer" is the last non-empty
-			// line(s) inside the block (Qwen puts answer at end of thinking)
-			thinking := result[start+len("<think>"):]
-			result = extractLastLines(thinking)
-			return strings.TrimSpace(result)
-		}
-		absEnd := start + end + len("</think>")
-		result = result[:start] + result[absEnd:]
-	}
-	result = strings.TrimSpace(result)
-	return result
-}
-
-// extractLastLines returns the last 1-3 meaningful lines of a string —
-// used to pull the actual answer out of an unclosed think block.
-func extractLastLines(s string) string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	var meaningful []string
-	for i := len(lines) - 1; i >= 0 && len(meaningful) < 3; i-- {
-		line := strings.TrimSpace(lines[i])
-		// Skip reasoning meta-lines that start with numbered steps or bullets
-		if line == "" || strings.HasPrefix(line, "1.") || strings.HasPrefix(line, "2.") ||
-			strings.HasPrefix(line, "3.") || strings.HasPrefix(line, "-") ||
-			strings.HasPrefix(line, "*") || strings.HasPrefix(line, "Here") ||
-			strings.HasPrefix(line, "Analyze") || strings.HasPrefix(line, "The") {
-			continue
-		}
-		meaningful = append([]string{line}, meaningful...)
-	}
-	if len(meaningful) == 0 {
-		// All lines looked like reasoning — just take the last non-empty line
-		for i := len(lines) - 1; i >= 0; i-- {
-			if line := strings.TrimSpace(lines[i]); line != "" {
-				return line
-			}
-		}
-	}
-	return strings.Join(meaningful, " ")
-}
-
 // StripMarkdown removes common markdown formatting that LLMs leak into output.
 func StripMarkdown(s string) string {
-	// Remove bold/italic markers: ** __ * _
-	replacer := strings.NewReplacer(
-		"**", "",
-		"__", "",
-		"~~", "",
-	)
+	replacer := strings.NewReplacer("**", "", "__", "", "~~", "")
 	s = replacer.Replace(s)
-	// Remove single * and _ only when used as emphasis (not in usernames/emojis)
-	// Simple approach: strip leading/trailing * or _ from each word
 	words := strings.Fields(s)
 	for i, w := range words {
 		w = strings.TrimLeft(w, "*_`")
@@ -216,13 +201,61 @@ func StripMarkdown(s string) string {
 	return strings.Join(words, " ")
 }
 
+// stripThinking removes chain-of-thought <think>...</think> blocks.
+// Handles closed blocks, unclosed blocks, and answer-inside-thinking.
+func stripThinking(s string) string {
+	result := s
+	for {
+		start := strings.Index(result, "<think>")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], "</think>")
+		if end == -1 {
+			// Unclosed — extract the last meaningful line from inside the block
+			thinking := result[start+len("<think>"):]
+			return extractLastMeaningfulLine(thinking)
+		}
+		absEnd := start + end + len("</think>")
+		result = result[:start] + result[absEnd:]
+	}
+	return strings.TrimSpace(result)
+}
+
+// extractLastMeaningfulLine pulls the last non-reasoning line from thinking content.
+func extractLastMeaningfulLine(s string) string {
+	lines := strings.Split(strings.TrimSpace(s), "\n")
+	// Walk backwards, skip obvious reasoning meta-lines
+	skip := []string{"1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.",
+		"- ", "* ", "Here", "Analyze", "Think", "Let me", "I need", "I should",
+		"Step", "First", "Next", "Finally", "The tweet", "My role", "Source"}
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		isReasoning := false
+		for _, prefix := range skip {
+			if strings.HasPrefix(line, prefix) {
+				isReasoning = true
+				break
+			}
+		}
+		if !isReasoning {
+			return line
+		}
+	}
+	// Everything looked like reasoning — return last non-empty line
+	for i := len(lines) - 1; i >= 0; i-- {
+		if line := strings.TrimSpace(lines[i]); line != "" {
+			return line
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
 func trimQuotes(s string) string {
 	s = strings.TrimSpace(s)
-	for len(s) > 0 && (s[0] == '"' || s[0] == '\'') {
-		s = s[1:]
-	}
-	for len(s) > 0 && (s[len(s)-1] == '"' || s[len(s)-1] == '\'') {
-		s = s[:len(s)-1]
-	}
+	s = strings.Trim(s, `"'`)
 	return strings.TrimSpace(s)
 }
