@@ -32,8 +32,8 @@ type groqResponse struct {
 	} `json:"choices"`
 }
 
-const groqModel = "qwen/qwen3.6-27b"       // primary — verified available Aug 2026
-const groqModelFallback = "openai/gpt-oss-20b" // fast fallback
+const groqModel = "openai/gpt-oss-20b"   // primary — no chain-of-thought issues
+const groqModelFallback = "qwen/qwen3.6-27b" // fallback
 const groqEndpoint = "https://api.groq.com/openai/v1/chat/completions"
 
 // knownHandles is a curated list of verified accounts the LLM may tag.
@@ -50,8 +50,7 @@ Example: "Is AI actually making developers less skilled? 🤔 @grok what do you 
 `
 
 // defaultSystemPrompt is the persona for AI/security posts.
-const defaultSystemPrompt = "/no_think\n" +
-	"You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
+const defaultSystemPrompt = "You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
 	"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
 	"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
 	"You favor AI tools, security threats, coding culture, and tech career topics. " +

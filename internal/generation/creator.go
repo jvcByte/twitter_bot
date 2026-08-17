@@ -9,8 +9,7 @@ import (
 	"github.com/jvcByte/twitter_bot/internal/feeds"
 )
 
-const creatorSystemPrompt = `/no_think
-You are a Software Engineer and PCB Designer posting on X (Twitter).
+const creatorSystemPrompt = `You are a Software Engineer and PCB Designer posting on X (Twitter).
 Write short, direct, useful posts about software development, embedded systems, PCB design, and engineering.
 
 STRICT RULES — never break these:
