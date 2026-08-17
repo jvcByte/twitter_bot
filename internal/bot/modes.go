@@ -175,7 +175,7 @@ func RunEngagement(client *twitter.Client, cfg *config.Config) {
 		return comment
 	}
 
-	n, err := client.EngageWithTopic(EngagementTopics, 5, commentFn, 2)
+	n, err := client.EngageWithTopic(EngagementTopics, 5, commentFn)
 	if err != nil {
 		log.Printf("engagement failed: %v", err)
 		return

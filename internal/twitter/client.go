@@ -220,8 +220,8 @@ func (c *Client) SelfEngage(tweetURL, comment string) error {
 
 // EngageWithTopic searches X for a topic and likes/comments/reposts relevant posts.
 // commentFn is called with each tweet's text and returns the comment to post (or "" to skip).
-// repostChance is 0–10; e.g. 2 = ~20% chance of reposting each post.
-func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(string) string, repostChance int) (n int, err error) {
+// Every post is liked and reposted; commented when commentFn returns a non-empty string.
+func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(string) string) (n int, err error) {
 	if len(topics) == 0 || maxPosts == 0 {
 		return 0, nil
 	}
@@ -289,8 +289,18 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 
 		if commentFn != nil {
 			tweetText := ""
-			if el, err := page.Timeout(5 * time.Second).Element(`[data-testid="tweetText"]`); err == nil {
-				tweetText, _ = el.Text()
+			// Try multiple selectors — tweet text may be nested differently
+			for _, sel := range []string{
+				`[data-testid="tweetText"]`,
+				`article div[lang]`,
+				`div[data-testid="tweetText"] span`,
+			} {
+				if el, err := page.Timeout(3 * time.Second).Element(sel); err == nil {
+					if t, _ := el.Text(); t != "" {
+						tweetText = t
+						break
+					}
+				}
 			}
 			if tweetText != "" {
 				if comment := commentFn(tweetText); comment != "" {
@@ -311,18 +321,19 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 						}
 					}
 				}
+			} else {
+				log.Printf("  ⚠ could not extract tweet text for comment: %s", tweetURL)
 			}
 		}
 
-		if repostChance > 0 && int(time.Now().UnixNano()%10) < repostChance {
-			if repostBtn, err := page.Timeout(sessionTimeout).Element(`[data-testid="retweet"]`); err == nil {
-				repostBtn.MustEval(`() => this.click()`)
+		// Repost every post (not probabilistic)
+		if repostBtn, err := page.Timeout(sessionTimeout).Element(`[data-testid="retweet"]`); err == nil {
+			repostBtn.MustEval(`() => this.click()`)
+			time.Sleep(1 * time.Second)
+			if confirmBtn, err := page.Timeout(5 * time.Second).Element(`[data-testid="retweetConfirm"]`); err == nil {
+				confirmBtn.MustEval(`() => this.click()`)
 				time.Sleep(1 * time.Second)
-				if confirmBtn, err := page.Timeout(5 * time.Second).Element(`[data-testid="retweetConfirm"]`); err == nil {
-					confirmBtn.MustEval(`() => this.click()`)
-					time.Sleep(1 * time.Second)
-					fmt.Printf("  ✓ reposted: %s\n", tweetURL)
-				}
+				fmt.Printf("  ✓ reposted: %s\n", tweetURL)
 			}
 		}
 		n++
