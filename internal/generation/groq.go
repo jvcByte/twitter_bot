@@ -50,7 +50,8 @@ Example: "Is AI actually making developers less skilled? 🤔 @grok what do you 
 `
 
 // defaultSystemPrompt is the persona for AI/security posts.
-const defaultSystemPrompt = "You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
+const defaultSystemPrompt = "/no_think\n" +
+	"You are a sharp, witty tech personality on X (Twitter) who specializes in AI and cybersecurity. " +
 	"You write short, punchy, engaging posts that get replies, likes, and retweets. " +
 	"Your tone is confident, relatable, and occasionally provocative — like a developer who's seen it all. " +
 	"You favor AI tools, security threats, coding culture, and tech career topics. " +
@@ -124,7 +125,7 @@ func callRawOnce(apiKey string, req groqRequest) (string, error) {
 	if len(gr.Choices) == 0 {
 		return "", fmt.Errorf("empty response from groq")
 	}
-	return gr.Choices[0].Message.Content, nil
+	return stripThinking(gr.Choices[0].Message.Content), nil
 }
 
 // TruncateTweet strips markdown artifacts and trims to max runes (not bytes).
@@ -135,6 +136,24 @@ func TruncateTweet(s string, max int) string {
 		return string(runes[:max-3]) + "..."
 	}
 	return s
+}
+
+// stripThinking removes Qwen3 <think>...</think> reasoning blocks from output.
+func stripThinking(s string) string {
+	for {
+		start := strings.Index(s, "<think>")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(s, "</think>")
+		if end == -1 {
+			// Unclosed tag — strip everything from <think> onward
+			s = strings.TrimSpace(s[:start])
+			break
+		}
+		s = s[:start] + s[end+len("</think>"):]
+	}
+	return strings.TrimSpace(s)
 }
 
 // StripMarkdown removes common markdown formatting that LLMs leak into output.
