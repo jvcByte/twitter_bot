@@ -82,9 +82,9 @@ var activeProviders []llmProvider
 func ProbeProviders() {
 	probe := groqRequest{
 		Messages: []groqMessage{
-			{Role: "user", Content: "Reply with exactly: ok"},
+			{Role: "user", Content: "Say hello in one sentence."},
 		},
-		MaxTokens:   500, // reasoning models need room to think before outputting content
+		MaxTokens:   500,
 		Temperature: 0,
 	}
 
