@@ -42,14 +42,8 @@ type provider struct {
 }
 
 // providers is tried in order — instruction-following models only.
+// Gemini 2.5 Flash Lite: 1500 req/day free (vs 20/day for 3.5-flash).
 var providers = []provider{
-	{
-		name:     "Gemini",
-		envKey:   "GEMINI_API_KEY",
-		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "gemini-3.5-flash",
-		fallback: "gemini-3.7-flash",
-	},
 	{
 		name:     "OpenRouter-Gemma",
 		envKey:   "OPENROUTER_API_KEY",
@@ -63,6 +57,13 @@ var providers = []provider{
 		url:      "https://openrouter.ai/api/v1/chat/completions",
 		model:    "nvidia/nemotron-3-ultra-550b-a55b:free",
 		fallback: "nvidia/nemotron-3-super-120b-a12b:free",
+	},
+	{
+		name:     "Gemini",
+		envKey:   "GEMINI_API_KEY",
+		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+		model:    "gemini-2.5-flash-lite",
+		fallback: "gemini-2.5-flash",
 	},
 }
 
@@ -175,26 +176,48 @@ func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
 		return "", fmt.Errorf("marshal: %w", err)
 	}
 
-	r, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
-	if err != nil {
-		return "", fmt.Errorf("build request: %w", err)
-	}
-	r.Header.Set("Authorization", "Bearer "+apiKey)
-	r.Header.Set("Content-Type", "application/json")
+	do := func() (string, int, []byte, error) {
+		r, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(body))
+		if err != nil {
+			return "", 0, nil, fmt.Errorf("build request: %w", err)
+		}
+		r.Header.Set("Authorization", "Bearer "+apiKey)
+		r.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(r)
-	if err != nil {
-		return "", fmt.Errorf("request: %w", err)
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(r)
+		if err != nil {
+			return "", 0, nil, fmt.Errorf("request: %w", err)
+		}
+		defer resp.Body.Close()
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", resp.StatusCode, nil, fmt.Errorf("read: %w", err)
+		}
+		return "", resp.StatusCode, data, nil
 	}
-	defer resp.Body.Close()
 
-	data, err := io.ReadAll(resp.Body)
+	_, status, data, err := do()
 	if err != nil {
-		return "", fmt.Errorf("read: %w", err)
+		return "", err
 	}
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("API error (%d): %s", resp.StatusCode, string(data))
+
+	// On 429 retry once after the suggested delay (capped at 60s).
+	if status == 429 {
+		wait := 35 * time.Second
+		// Try to parse retryDelay from the error body.
+		if s := retryAfter(data); s > 0 && s <= 60 {
+			wait = time.Duration(s) * time.Second
+		}
+		time.Sleep(wait)
+		_, status, data, err = do()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if status != 200 {
+		return "", fmt.Errorf("API error (%d): %s", status, string(data))
 	}
 
 	var out chatResponse
@@ -214,6 +237,23 @@ func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
 		return "", fmt.Errorf("response too short: %q", text)
 	}
 	return text, nil
+}
+
+// retryAfter extracts a retry delay in seconds from a 429 response body.
+func retryAfter(data []byte) int {
+	s := string(data)
+	// Look for patterns like "retry in 33s" or "retryDelay":"33s"
+	for _, sep := range []string{`"retryDelay":"`, `retry in `, `Please retry in `} {
+		if i := strings.Index(s, sep); i >= 0 {
+			rest := s[i+len(sep):]
+			var n int
+			fmt.Sscanf(rest, "%d", &n)
+			if n > 0 {
+				return n
+			}
+		}
+	}
+	return 0
 }
 
 // TruncateTweet trims s to max runes at a word boundary.
