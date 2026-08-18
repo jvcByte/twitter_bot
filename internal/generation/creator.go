@@ -225,29 +225,48 @@ Rules:
 	reply = StripMarkdown(stripThinking(strings.TrimSpace(reply)))
 	reply = trimQuotes(reply)
 
-	// Trim to last complete sentence if over 200 chars
-	if len([]rune(reply)) > 200 {
-		reply = trimToLastSentence(reply, 200)
-	}
+	// Always trim to last complete sentence to ensure clean ending
+	reply = trimToLastSentence(reply, 200)
 
 	if len([]rune(reply)) < 10 {
 		return "", fmt.Errorf("comment too short")
 	}
+
+	// Reject if it still doesn't end with sentence-ending punctuation
+	last := reply[len(reply)-1]
+	if last != '.' && last != '!' && last != '?' {
+		return "", fmt.Errorf("comment not a complete sentence: %q", reply)
+	}
+
 	return reply, nil
 }
 
-// trimToLastSentence cuts s at the last sentence boundary before maxRunes.
+// trimToLastSentence trims s to the last complete sentence ending at or before maxRunes.
+// Always trims to a sentence boundary even if s is already within maxRunes.
 func trimToLastSentence(s string, maxRunes int) string {
 	runes := []rune(s)
-	if len(runes) <= maxRunes {
-		return s
+	end := len(runes)
+	if end > maxRunes {
+		end = maxRunes
 	}
-	cut := string(runes[:maxRunes])
+	cut := strings.TrimSpace(string(runes[:end]))
+
+	// Already ends with sentence punctuation — done
+	if len(cut) > 0 {
+		last := cut[len(cut)-1]
+		if last == '.' || last == '!' || last == '?' {
+			return cut
+		}
+	}
+
+	// Walk back to find the last sentence-ending punctuation
 	for i := len(cut) - 1; i > 0; i-- {
 		if cut[i] == '.' || cut[i] == '!' || cut[i] == '?' {
 			return strings.TrimSpace(cut[:i+1])
 		}
 	}
+
+	// No sentence boundary — trim at last word boundary
 	if idx := strings.LastIndex(cut, " "); idx > 0 {
 		return strings.TrimSpace(cut[:idx])
 	}
