@@ -214,11 +214,15 @@ Rules:
 - Do NOT lecture them
 - Max 180 chars. No hashtags. Just the reply text.`, tweetText)
 
-	reply, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 80)
+	reply, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 200)
 	if err != nil {
 		return "", err
 	}
-	return TruncateTweet(reply, 280), nil
+	reply = TruncateTweet(reply, 180)
+	if len([]rune(reply)) < 10 {
+		return "", fmt.Errorf("comment too short")
+	}
+	return reply, nil
 }
 
 // IsCreatorTextOnly returns true if the creator format performs better without an image.
