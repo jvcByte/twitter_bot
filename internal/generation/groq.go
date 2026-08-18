@@ -37,37 +37,43 @@ type groqResponse struct {
 
 // llmProvider defines an OpenAI-compatible LLM endpoint.
 type llmProvider struct {
-	name   string
-	envKey string
-	url    string
-	model  string
+	name      string
+	envKey    string
+	url       string
+	model     string
+	fallback  string // alternate model to try on 404
 }
 
 // providers are tried in order until one succeeds.
+// Priority: Groq (fastest, correct models) → Gemini → OpenRouter → Cerebras
 var providers = []llmProvider{
 	{
-		name:   "Cerebras",
-		envKey: "CEREBRAS_API_KEY",
-		url:    "https://api.cerebras.ai/v1/chat/completions",
-		model:  "gpt-oss-120b",
+		name:     "Groq",
+		envKey:   "GROQ_API_KEY",
+		url:      "https://api.groq.com/openai/v1/chat/completions",
+		model:    "llama-3.3-70b-versatile",
+		fallback: "llama-4-maverick-17b-128e-instruct",
 	},
 	{
-		name:   "Gemini",
-		envKey: "GEMINI_API_KEY",
-		url:    "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:  "gemini-3.6-flash",
+		name:     "Gemini",
+		envKey:   "GEMINI_API_KEY",
+		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+		model:    "gemini-2.5-flash",
+		fallback: "gemini-2.0-flash-lite",
 	},
 	{
-		name:   "OpenRouter",
-		envKey: "OPENROUTER_API_KEY",
-		url:    "https://openrouter.ai/api/v1/chat/completions",
-		model:  "deepseek/deepseek-v3-0324:free",
+		name:     "OpenRouter",
+		envKey:   "OPENROUTER_API_KEY",
+		url:      "https://openrouter.ai/api/v1/chat/completions",
+		model:    "meta-llama/llama-3.3-70b-instruct:free",
+		fallback: "mistralai/mistral-small-3.2-24b-instruct:free",
 	},
 	{
-		name:   "Groq",
-		envKey: "GROQ_API_KEY",
-		url:    "https://api.groq.com/openai/v1/chat/completions",
-		model:  "openai/gpt-oss-20b",
+		name:     "Cerebras",
+		envKey:   "CEREBRAS_API_KEY",
+		url:      "https://api.cerebras.ai/v1/chat/completions",
+		model:    "llama-3.3-70b",
+		fallback: "llama3.1-8b",
 	},
 }
 
@@ -103,10 +109,12 @@ func CallGroq(apiKey, userPrompt string, maxTokens int) (string, error) {
 // CallGroqWithSystem calls with a custom system prompt, trying all providers in order.
 // apiKey is accepted for backward compat but providers read keys from env directly.
 func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (string, error) {
+	// Append explicit instruction to output answer after any thinking
+	augmentedPrompt := userPrompt + "\n\nIMPORTANT: Output ONLY the final answer as plain text. No reasoning, no labels, no prefixes."
 	req := groqRequest{
 		Messages: []groqMessage{
 			{Role: "system", Content: systemPrompt},
-			{Role: "user", Content: userPrompt},
+			{Role: "user", Content: augmentedPrompt},
 		},
 		MaxTokens:   maxTokens,
 		Temperature: 0.85,
@@ -121,9 +129,16 @@ func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (stri
 		req.Model = p.model
 		result, err := callEndpoint(key, p.url, req)
 		if err != nil {
-			fmt.Printf("  ⚠ %s LLM failed: %v\n", p.name, err)
-			lastErr = err
-			continue
+			// On 404 try the fallback model before giving up on this provider
+			if strings.Contains(err.Error(), "404") && p.fallback != "" {
+				req.Model = p.fallback
+				result, err = callEndpoint(key, p.url, req)
+			}
+			if err != nil {
+				fmt.Printf("  ⚠ %s LLM failed: %v\n", p.name, err)
+				lastErr = err
+				continue
+			}
 		}
 		return stripThinking(result), nil
 	}
@@ -175,6 +190,10 @@ func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	if result == "" && raw != "" {
 		result = strings.TrimSpace(raw)
 	}
+	// Reject suspiciously short outputs — likely a partial/truncated response
+	if len([]rune(result)) < 10 {
+		return "", fmt.Errorf("response too short (%d chars): %q", len(result), result)
+	}
 	return result, nil
 }
 
@@ -202,7 +221,6 @@ func StripMarkdown(s string) string {
 }
 
 // stripThinking removes chain-of-thought <think>...</think> blocks.
-// Handles closed blocks, unclosed blocks, and answer-inside-thinking.
 func stripThinking(s string) string {
 	result := s
 	for {
@@ -212,46 +230,14 @@ func stripThinking(s string) string {
 		}
 		end := strings.Index(result[start:], "</think>")
 		if end == -1 {
-			// Unclosed — extract the last meaningful line from inside the block
-			thinking := result[start+len("<think>"):]
-			return extractLastMeaningfulLine(thinking)
+			// Unclosed block — everything from here is reasoning, discard it
+			result = strings.TrimSpace(result[:start])
+			break
 		}
 		absEnd := start + end + len("</think>")
 		result = result[:start] + result[absEnd:]
 	}
 	return strings.TrimSpace(result)
-}
-
-// extractLastMeaningfulLine pulls the last non-reasoning line from thinking content.
-func extractLastMeaningfulLine(s string) string {
-	lines := strings.Split(strings.TrimSpace(s), "\n")
-	// Walk backwards, skip obvious reasoning meta-lines
-	skip := []string{"1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9.",
-		"- ", "* ", "Here", "Analyze", "Think", "Let me", "I need", "I should",
-		"Step", "First", "Next", "Finally", "The tweet", "My role", "Source"}
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			continue
-		}
-		isReasoning := false
-		for _, prefix := range skip {
-			if strings.HasPrefix(line, prefix) {
-				isReasoning = true
-				break
-			}
-		}
-		if !isReasoning {
-			return line
-		}
-	}
-	// Everything looked like reasoning — return last non-empty line
-	for i := len(lines) - 1; i >= 0; i-- {
-		if line := strings.TrimSpace(lines[i]); line != "" {
-			return line
-		}
-	}
-	return strings.TrimSpace(s)
 }
 
 func trimQuotes(s string) string {
