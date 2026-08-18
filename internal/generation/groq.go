@@ -29,12 +29,10 @@ type groqRequest struct {
 }
 
 // groqResponse is the chat completion response body.
-// Some reasoning models (gpt-oss-20b) put output in reasoning when content is empty.
 type groqResponse struct {
 	Choices []struct {
 		Message struct {
-			Content   string `json:"content"`
-			Reasoning string `json:"reasoning"`
+			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
 }
@@ -201,7 +199,15 @@ func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (stri
 }
 
 // callEndpoint sends a request to any OpenAI-compatible endpoint.
+// minTokensForReasoning ensures reasoning models have enough budget to finish thinking.
+const minTokensForReasoning = 400
+
 func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
+	// Reasoning models need enough tokens to finish thinking before outputting content.
+	// Bump any call that's under the minimum.
+	if req.MaxTokens < minTokensForReasoning {
+		req.MaxTokens = minTokensForReasoning
+	}
 	data, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
@@ -238,10 +244,10 @@ func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	}
 
 	raw := gr.Choices[0].Message.Content
-	// Some reasoning models (e.g. gpt-oss-20b) put the answer in "reasoning"
-	// when content is empty — use it as fallback.
+	// gpt-oss-20b: if content is still empty despite adequate tokens,
+	// the model produced no output — treat as failure.
 	if strings.TrimSpace(raw) == "" {
-		raw = gr.Choices[0].Message.Reasoning
+		return "", fmt.Errorf("empty content in response")
 	}
 	result := stripThinking(raw)
 	if result == "" && raw != "" {
