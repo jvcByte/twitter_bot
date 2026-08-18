@@ -207,22 +207,51 @@ Pick the fitting style:
 - Debugging story → relate or suggest what to check next
 
 Rules:
+- Write ONE complete, self-contained sentence or two SHORT sentences
+- Must be a complete thought — never end mid-sentence
 - Sound like a real engineer, not a bot
 - Be specific to what they said
 - Only ask a question if it genuinely fits
 - Do NOT start with "I"
 - Do NOT lecture them
-- Max 180 chars. No hashtags. Just the reply text.`, tweetText)
+- Keep it under 150 chars so it fits completely
+- No hashtags. Just the reply text.`, tweetText)
 
 	reply, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 200)
 	if err != nil {
 		return "", err
 	}
-	reply = TruncateTweet(reply, 180)
+
+	reply = StripMarkdown(stripThinking(strings.TrimSpace(reply)))
+	reply = trimQuotes(reply)
+
+	// Trim to last complete sentence if over 200 chars
+	if len([]rune(reply)) > 200 {
+		reply = trimToLastSentence(reply, 200)
+	}
+
 	if len([]rune(reply)) < 10 {
 		return "", fmt.Errorf("comment too short")
 	}
 	return reply, nil
+}
+
+// trimToLastSentence cuts s at the last sentence boundary before maxRunes.
+func trimToLastSentence(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	cut := string(runes[:maxRunes])
+	for i := len(cut) - 1; i > 0; i-- {
+		if cut[i] == '.' || cut[i] == '!' || cut[i] == '?' {
+			return strings.TrimSpace(cut[:i+1])
+		}
+	}
+	if idx := strings.LastIndex(cut, " "); idx > 0 {
+		return strings.TrimSpace(cut[:idx])
+	}
+	return cut
 }
 
 // IsCreatorTextOnly returns true if the creator format performs better without an image.
