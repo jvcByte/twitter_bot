@@ -245,6 +245,13 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 	page.MustWaitLoad()
 	time.Sleep(4 * time.Second)
 
+	// Wait for at least one tweet article to appear (up to 15s)
+	if _, err := page.Timeout(15 * time.Second).Element(`article[data-testid="tweet"]`); err != nil {
+		log.Printf("  ⚠ no tweets loaded for topic %q — skipping", topic)
+		return 0, nil
+	}
+	time.Sleep(1 * time.Second)
+
 	// Phase 1: collect tweet URLs (no interactions — avoids stale elements)
 	var tweetURLs []string
 	seen := map[string]bool{}
@@ -271,6 +278,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 	}
 
 	// Phase 2: navigate to each tweet and engage
+	log.Printf("  collected %d tweet URLs for topic %q", len(tweetURLs), topic)
 	for _, tweetURL := range tweetURLs {
 		if n >= maxPosts {
 			break
