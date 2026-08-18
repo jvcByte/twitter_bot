@@ -46,34 +46,35 @@ type llmProvider struct {
 
 // providers are tried in order until one succeeds.
 // Priority: Groq → Gemini → OpenRouter → Cerebras
+// Model IDs verified against each provider's live /models endpoint.
 var providers = []llmProvider{
 	{
 		name:     "Groq",
 		envKey:   "GROQ_API_KEY",
 		url:      "https://api.groq.com/openai/v1/chat/completions",
-		model:    "llama-3.3-70b-versatile",
-		fallback: "llama3-70b-8192",
+		model:    "openai/gpt-oss-20b",
+		fallback: "qwen/qwen3.6-27b",
 	},
 	{
 		name:     "Gemini",
 		envKey:   "GEMINI_API_KEY",
 		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "gemini-2.5-flash",
-		fallback: "gemini-2.0-flash-lite",
+		model:    "models/gemini-3.7-flash",
+		fallback: "models/gemini-3.5-flash",
 	},
 	{
 		name:     "OpenRouter",
 		envKey:   "OPENROUTER_API_KEY",
 		url:      "https://openrouter.ai/api/v1/chat/completions",
-		model:    "nvidia/nemotron-ultra-253b-v1:free",
-		fallback: "nvidia/nemotron-super-49b-v1:free",
+		model:    "openai/gpt-oss-20b:free",
+		fallback: "nvidia/nemotron-3-super-120b-a12b:free",
 	},
 	{
 		name:     "Cerebras",
 		envKey:   "CEREBRAS_API_KEY",
 		url:      "https://api.cerebras.ai/v1/chat/completions",
-		model:    "llama-3.3-70b",
-		fallback: "llama3.1-8b",
+		model:    "gpt-oss-120b",
+		fallback: "gemma-4-31b",
 	},
 }
 
@@ -244,8 +245,8 @@ func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	if result == "" && raw != "" {
 		result = strings.TrimSpace(raw)
 	}
-	// Reject suspiciously short outputs — likely a partial/truncated response
-	if len([]rune(result)) < 10 {
+	// Reject suspiciously short outputs — likely a failed/empty response
+	if len([]rune(result)) < 5 {
 		return "", fmt.Errorf("response too short (%d chars): %q", len(result), result)
 	}
 	return result, nil
