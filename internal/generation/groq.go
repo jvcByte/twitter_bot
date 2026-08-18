@@ -47,22 +47,21 @@ type llmProvider struct {
 }
 
 // providers are tried in order until one succeeds.
-// Priority: Groq → Gemini → OpenRouter
-// Model IDs verified against each provider's live /models endpoint.
+// Priority: Gemini (clean output) → Groq → OpenRouter
 var providers = []llmProvider{
-	{
-		name:     "Groq",
-		envKey:   "GROQ_API_KEY",
-		url:      "https://api.groq.com/openai/v1/chat/completions",
-		model:    "openai/gpt-oss-20b",
-		fallback: "qwen/qwen3.6-27b",
-	},
 	{
 		name:     "Gemini",
 		envKey:   "GEMINI_API_KEY",
 		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
 		model:    "gemini-3.5-flash",
 		fallback: "gemini-3.7-flash",
+	},
+	{
+		name:     "Groq",
+		envKey:   "GROQ_API_KEY",
+		url:      "https://api.groq.com/openai/v1/chat/completions",
+		model:    "openai/gpt-oss-20b", // reasoning model, needs 800+ tokens
+		fallback: "qwen/qwen3.6-27b",
 	},
 	{
 		name:     "OpenRouter",
@@ -198,9 +197,9 @@ func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (stri
 	return "", fmt.Errorf("no LLM API keys configured (set CEREBRAS_API_KEY, GEMINI_API_KEY, OPENROUTER_API_KEY, or GROQ_API_KEY)")
 }
 
-// callEndpoint sends a request to any OpenAI-compatible endpoint.
 // minTokensForReasoning ensures reasoning models have enough budget to finish thinking.
-const minTokensForReasoning = 400
+// gpt-oss-20b needs ~600+ tokens to complete reasoning before outputting content.
+const minTokensForReasoning = 800
 
 func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	// Reasoning models need enough tokens to finish thinking before outputting content.
