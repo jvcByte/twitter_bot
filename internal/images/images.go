@@ -48,16 +48,13 @@ func GenerateForPost(groqAPIKey, imgflipUser, imgflipPass, text0, text1 string) 
 }
 
 // Pollinations generates an image from a text prompt via Pollinations.ai.
-func Pollinations(groqAPIKey, tweetText string) (string, error) {
-	prompt := buildPrompt(groqAPIKey, tweetText)
+func Pollinations(_, tweetText string) (string, error) {
+	prompt := buildPrompt(tweetText)
 	fmt.Printf("  🎨 image prompt: %s\n", prompt)
 	return fetchPollinations(prompt)
 }
 
-func buildPrompt(groqAPIKey, tweetText string) string {
-	if groqAPIKey == "" {
-		return extractKeywords(tweetText)
-	}
+func buildPrompt(tweetText string) string {
 	q := fmt.Sprintf(`Convert this tweet into a concise Stable Diffusion image prompt (max 100 chars).
 Tweet: "%s"
 
@@ -69,7 +66,7 @@ Rules:
 - No text, no words, no letters in the image
 - Output ONLY the prompt.`, tweetText)
 
-	result, err := generation.CallGroq(groqAPIKey, q, 80)
+	result, err := generation.Generate(q, 80)
 	if err != nil || strings.TrimSpace(result) == "" {
 		return extractKeywords(tweetText)
 	}

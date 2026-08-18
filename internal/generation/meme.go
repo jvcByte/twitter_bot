@@ -77,7 +77,7 @@ Use emojis. Max 230 chars. Just the tweet text.`},
 
 // GenerateMemePost generates an AI-powered tweet in a random format.
 // headline is optional — used for reaction/news_reaction formats.
-func GenerateMemePost(apiKey, headline string) (string, string, error) {
+func GenerateMemePost(_, headline string) (string, string, error) {
 	rand.Seed(time.Now().UnixNano())
 
 	available := memeFormats
@@ -97,7 +97,7 @@ func GenerateMemePost(apiKey, headline string) (string, string, error) {
 		prompt = fmt.Sprintf(format.Prompt, headline)
 	}
 
-	post, err := CallGroq(apiKey, prompt, 150)
+	post, err := Generate(prompt, 150)
 	if err != nil {
 		return "", "", err
 	}
@@ -105,8 +105,8 @@ func GenerateMemePost(apiKey, headline string) (string, string, error) {
 }
 
 // GenerateSelfComment generates a short follow-up comment for self-engagement.
-func GenerateSelfComment(apiKey, postText string) string {
-	if apiKey == "" {
+func GenerateSelfComment(_, postText string) string {
+	if postText == "" {
 		return ""
 	}
 	prompt := fmt.Sprintf(`You just posted this tweet:
@@ -119,7 +119,7 @@ Rules:
 - Use 1 emoji max
 - Max 180 chars. Just the comment text.`, postText)
 
-	result, err := CallGroq(apiKey, prompt, 60)
+	result, err := Generate(prompt, 60)
 	if err != nil {
 		return ""
 	}
@@ -127,7 +127,7 @@ Rules:
 }
 
 // GenerateThread generates a 6-tweet thread on an AI/security topic.
-func GenerateThread(apiKey, topic string) ([]string, error) {
+func GenerateThread(_, topic string) ([]string, error) {
 	topicLine := "Pick an interesting AI or cybersecurity topic that developers care about."
 	if topic != "" {
 		topicLine = fmt.Sprintf("Topic: %s", topic)
@@ -143,7 +143,7 @@ Rules:
 - Each tweet <= 260 chars. Use emojis. Add 1-2 hashtags.
 - Output ONLY the 6 tweets, one per line, nothing else.`, topicLine)
 
-	raw, err := CallGroq(apiKey, prompt, 900)
+	raw, err := Generate(prompt, 900)
 	if err != nil {
 		return nil, err
 	}

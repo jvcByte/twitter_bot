@@ -124,7 +124,7 @@ func GenerateCreatorPost(apiKey string) (string, string, error) {
 	format := creatorFormats[rand.Intn(len(creatorFormats))]
 	prompt := fmt.Sprintf(format.prompt, a.Title, a.FeedName, excerpt)
 
-	post, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 150)
+	post, err := GenerateWithSystem(creatorSystemPrompt, prompt, 150)
 	if err != nil {
 		return "", "", err
 	}
@@ -176,7 +176,7 @@ Rules:
 - Each tweet <= 250 chars. Use emojis. Add hashtags on last tweet only.
 - Output ONLY the 6 tweets, one per line, nothing else.`, sourceInfo)
 
-	raw, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 900)
+	raw, err := GenerateWithSystem(creatorSystemPrompt, prompt, 900)
 	if err != nil {
 		return nil, err
 	}
@@ -203,12 +203,12 @@ Do not add use cases or claims not in the tweet.
 End with . ! or ?
 Under 140 chars. No hashtags. Output the reply only — no labels, no options, no preamble.`, tweetText)
 
-	reply, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 200)
+	reply, err := GenerateWithSystem(creatorSystemPrompt, prompt, 200)
 	if err != nil {
 		return "", err
 	}
 
-	reply = StripMarkdown(stripThinking(strings.TrimSpace(reply)))
+	reply = StripMarkdown(strings.TrimSpace(reply))
 	reply = trimQuotes(reply)
 
 	// Always trim to last complete sentence to ensure clean ending
@@ -294,7 +294,7 @@ Write ONE engaging tweet about this headline. Strong hook, AI/security lens, spa
 Max 260 chars. No hashtags. Just the tweet text.`, a.Title, a.FeedName)
 	}
 
-	result, err := CallGroq(groqAPIKey, prompt, 150)
+	result, err := Generate(prompt, 150)
 	if err != nil {
 		return feeds.FormatHeadline(a)
 	}
