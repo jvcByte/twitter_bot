@@ -29,9 +29,13 @@ type groqRequest struct {
 }
 
 // groqResponse is the chat completion response body.
+// Some reasoning models (gpt-oss-20b) put output in reasoning when content is empty.
 type groqResponse struct {
 	Choices []struct {
-		Message groqMessage `json:"message"`
+		Message struct {
+			Content   string `json:"content"`
+			Reasoning string `json:"reasoning"`
+		} `json:"message"`
 	} `json:"choices"`
 }
 
@@ -59,15 +63,15 @@ var providers = []llmProvider{
 		name:     "Gemini",
 		envKey:   "GEMINI_API_KEY",
 		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "gemini-flash-latest",
-		fallback: "gemini-3.5-flash",
+		model:    "gemini-3.5-flash",
+		fallback: "gemini-3.7-flash",
 	},
 	{
 		name:     "OpenRouter",
 		envKey:   "OPENROUTER_API_KEY",
 		url:      "https://openrouter.ai/api/v1/chat/completions",
-		model:    "nvidia/nemotron-3-ultra-550b-a55b:free",
-		fallback: "google/gemma-4-26b-a4b-it:free",
+		model:    "google/gemma-4-26b-a4b-it:free",
+		fallback: "nvidia/nemotron-3-ultra-550b-a55b:free",
 	},
 }
 
@@ -82,7 +86,7 @@ func ProbeProviders() {
 		Messages: []groqMessage{
 			{Role: "user", Content: "Reply with exactly: ok"},
 		},
-		MaxTokens:   20,
+		MaxTokens:   500, // reasoning models need room to think before outputting content
 		Temperature: 0,
 	}
 
@@ -234,6 +238,11 @@ func callEndpoint(apiKey, endpointURL string, req groqRequest) (string, error) {
 	}
 
 	raw := gr.Choices[0].Message.Content
+	// Some reasoning models (e.g. gpt-oss-20b) put the answer in "reasoning"
+	// when content is empty — use it as fallback.
+	if strings.TrimSpace(raw) == "" {
+		raw = gr.Choices[0].Message.Reasoning
+	}
 	result := stripThinking(raw)
 	if result == "" && raw != "" {
 		result = strings.TrimSpace(raw)
