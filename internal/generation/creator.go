@@ -196,26 +196,27 @@ Rules:
 
 // GenerateEngagementComment generates a context-aware reply to someone else's tweet.
 func GenerateEngagementComment(apiKey, tweetText string) (string, error) {
-	prompt := fmt.Sprintf(`Read this tweet and write a natural, human reply:
+	prompt := fmt.Sprintf(`Tweet to reply to:
 "%s"
 
-Pick the fitting style:
-- Tip/insight → add a related technical point
-- Question → answer it directly
-- Build/project → react to the specific thing
-- Opinion → agree or push back with a reason
-- Debugging story → relate or suggest what to check next
+Write a short, natural reply from a software engineer / PCB designer.
+
+Respond ONLY to what is actually in the tweet above.
+Do NOT add use cases, applications, or claims not mentioned in the tweet.
+Do NOT say "sensor node", "IoT", or any application unless the tweet explicitly mentions it.
+
+Good reply styles:
+- Highlight one specific detail from the tweet (a chip, feature, or design choice)
+- Ask a genuine question about something IN the tweet
+- Share a relevant technical observation grounded in the tweet content
+- React to the specific product/decision described
 
 Rules:
-- Write ONE complete, self-contained sentence or two SHORT sentences
-- Must be a complete thought — never end mid-sentence
-- Sound like a real engineer, not a bot
-- Be specific to what they said
-- Only ask a question if it genuinely fits
+- ONE complete sentence ending with . ! or ?
+- Under 140 chars
+- No hashtags
 - Do NOT start with "I"
-- Do NOT lecture them
-- Keep it under 150 chars so it fits completely
-- No hashtags. Just the reply text.`, tweetText)
+- Output only the reply text, nothing else`, tweetText)
 
 	reply, err := CallGroqWithSystem(apiKey, creatorSystemPrompt, prompt, 200)
 	if err != nil {
