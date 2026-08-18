@@ -252,21 +252,27 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 	}
 	time.Sleep(1 * time.Second)
 
-	// Phase 1: collect tweet URLs (no interactions — avoids stale elements)
+	// Phase 1: collect tweet URLs — deduplicated by status ID to prevent double-engaging
 	var tweetURLs []string
-	seen := map[string]bool{}
+	seen := map[string]bool{} // keyed by status ID
 	for scroll := 0; scroll < 4 && len(tweetURLs) < maxPosts*2; scroll++ {
 		for _, article := range mustElements(page, `article[data-testid="tweet"]`) {
 			for _, l := range mustElements(article, `a[href*="/status/"]`) {
 				href, _ := l.Attribute("href")
-				if href == nil || !strings.Contains(*href, "/status/") {
+				if href == nil {
 					continue
 				}
+				// Normalize: extract just "/user/status/ID" — ignore query params
 				path := *href
-				if seen[path] || strings.Contains(strings.ToLower(path), strings.ToLower(c.username)) {
+				if idx := strings.Index(path, "?"); idx >= 0 {
+					path = path[:idx]
+				}
+				// Skip own tweets and already seen status IDs
+				statusID := path[strings.LastIndex(path, "/")+1:]
+				if seen[statusID] || strings.Contains(strings.ToLower(path), strings.ToLower(c.username)) {
 					continue
 				}
-				seen[path] = true
+				seen[statusID] = true
 				tweetURLs = append(tweetURLs, "https://x.com"+path)
 				break
 			}
