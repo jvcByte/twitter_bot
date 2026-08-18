@@ -45,7 +45,7 @@ type llmProvider struct {
 }
 
 // providers are tried in order until one succeeds.
-// Priority: Groq → Gemini → OpenRouter → Cerebras
+// Priority: Groq → Gemini → OpenRouter
 // Model IDs verified against each provider's live /models endpoint.
 var providers = []llmProvider{
 	{
@@ -59,22 +59,15 @@ var providers = []llmProvider{
 		name:     "Gemini",
 		envKey:   "GEMINI_API_KEY",
 		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "models/gemini-3.7-flash",
-		fallback: "models/gemini-3.5-flash",
+		model:    "gemini-flash-latest",
+		fallback: "gemini-3.5-flash",
 	},
 	{
 		name:     "OpenRouter",
 		envKey:   "OPENROUTER_API_KEY",
 		url:      "https://openrouter.ai/api/v1/chat/completions",
-		model:    "openai/gpt-oss-20b:free",
-		fallback: "nvidia/nemotron-3-super-120b-a12b:free",
-	},
-	{
-		name:     "Cerebras",
-		envKey:   "CEREBRAS_API_KEY",
-		url:      "https://api.cerebras.ai/v1/chat/completions",
-		model:    "gpt-oss-120b",
-		fallback: "gemma-4-31b",
+		model:    "nvidia/nemotron-3-ultra-550b-a55b:free",
+		fallback: "google/gemma-4-26b-a4b-it:free",
 	},
 }
 
@@ -116,7 +109,7 @@ func ProbeProviders() {
 			fmt.Printf("  ✗ %s: %v\n", p.name, err)
 			continue
 		}
-		fmt.Printf("  ✓ %s (%s): %q\n", p.name, p.model, strings.TrimSpace(result))
+		fmt.Printf("  ✓ %s (%s): %q\n", p.name, p.model, strings.TrimSpace(stripThinking(result)))
 		working = append(working, p)
 	}
 
