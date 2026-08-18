@@ -45,14 +45,14 @@ type llmProvider struct {
 }
 
 // providers are tried in order until one succeeds.
-// Priority: Groq (fastest, correct models) → Gemini → OpenRouter → Cerebras
+// Priority: Groq → Gemini → OpenRouter → Cerebras
 var providers = []llmProvider{
 	{
 		name:     "Groq",
 		envKey:   "GROQ_API_KEY",
 		url:      "https://api.groq.com/openai/v1/chat/completions",
 		model:    "llama-3.3-70b-versatile",
-		fallback: "llama-4-maverick-17b-128e-instruct",
+		fallback: "llama3-70b-8192",
 	},
 	{
 		name:     "Gemini",
@@ -65,8 +65,8 @@ var providers = []llmProvider{
 		name:     "OpenRouter",
 		envKey:   "OPENROUTER_API_KEY",
 		url:      "https://openrouter.ai/api/v1/chat/completions",
-		model:    "meta-llama/llama-3.3-70b-instruct:free",
-		fallback: "mistralai/mistral-small-3.2-24b-instruct:free",
+		model:    "nvidia/nemotron-ultra-253b-v1:free",
+		fallback: "nvidia/nemotron-super-49b-v1:free",
 	},
 	{
 		name:     "Cerebras",
@@ -75,6 +75,56 @@ var providers = []llmProvider{
 		model:    "llama-3.3-70b",
 		fallback: "llama3.1-8b",
 	},
+}
+
+// activeProviders is set once by ProbeProviders and used for all subsequent calls.
+// nil means not probed yet — fall back to full providers list.
+var activeProviders []llmProvider
+
+// ProbeProviders tests each configured provider with a minimal prompt and
+// removes any that fail. Call once at startup before posting.
+func ProbeProviders() {
+	probe := groqRequest{
+		Messages: []groqMessage{
+			{Role: "user", Content: "Reply with exactly: ok"},
+		},
+		MaxTokens:   20,
+		Temperature: 0,
+	}
+
+	var working []llmProvider
+	for _, p := range providers {
+		key := os.Getenv(p.envKey)
+		if key == "" {
+			continue
+		}
+		probe.Model = p.model
+		result, err := callEndpoint(key, p.url, probe)
+		if err != nil {
+			// Try fallback model
+			if p.fallback != "" {
+				probe.Model = p.fallback
+				result, err = callEndpoint(key, p.url, probe)
+				if err == nil {
+					p.model = p.fallback // promote fallback to primary
+					p.fallback = ""
+				}
+			}
+		}
+		if err != nil {
+			fmt.Printf("  ✗ %s: %v\n", p.name, err)
+			continue
+		}
+		fmt.Printf("  ✓ %s (%s): %q\n", p.name, p.model, strings.TrimSpace(result))
+		working = append(working, p)
+	}
+
+	if len(working) == 0 {
+		fmt.Println("  ⚠ no LLM providers passed probe — will retry each call live")
+		activeProviders = nil
+		return
+	}
+	activeProviders = working
 }
 
 // knownHandles is a curated list of verified accounts the LLM may tag.
@@ -121,7 +171,11 @@ func CallGroqWithSystem(_, systemPrompt, userPrompt string, maxTokens int) (stri
 	}
 
 	var lastErr error
-	for _, p := range providers {
+	pool := activeProviders
+	if pool == nil {
+		pool = providers // not probed yet, try all
+	}
+	for _, p := range pool {
 		key := os.Getenv(p.envKey)
 		if key == "" {
 			continue

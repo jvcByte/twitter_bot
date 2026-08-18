@@ -37,6 +37,11 @@ func Run(cfg *config.Config) {
 	fmt.Printf("🚀 Bot started | mode: %s | feeds: %d | category: %s\n",
 		cfg.PostMode, len(feedList), categoryLabel)
 
+	// Probe all LLM providers once at startup — removes broken ones before posting
+	fmt.Println("🔍 probing LLM providers...")
+	generation.ProbeProviders()
+	fmt.Println()
+
 	runOnce := os.Getenv("RUN_ONCE") == "true"
 	if runOnce {
 		poll(client, seen, cfg)
