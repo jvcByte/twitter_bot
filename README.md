@@ -1,223 +1,121 @@
 # Twitter AI Bot
 
-An automated Twitter/X bot for Software Engineers and PCB Designers. Monitors curated RSS feeds, generates AI-enhanced tweets, posts owned engineering content grounded in real articles, and engages with the community — all free via GitHub Actions. No server required.
+An automated X (Twitter) bot that posts news, tips, opinions, and engages with people — all on autopilot. No server needed. Runs free on GitHub.
 
 ---
 
 ## What It Does
 
-The bot runs on a schedule and rotates through five modes:
+Runs on a schedule and does four things:
 
-- **News** — Polls 40+ RSS feeds, writes AI-enhanced tweets with images and link replies
-- **Creator** — Generates owned technical content (code tips, PCB insights, dev opinions) grounded in real articles from dev/embedded feeds
-- **Meme** — AI-generated posts in 13 formats with Pollinations images — hot takes, polls, threads
-- **Engage** — Searches X for relevant topics, likes posts, comments with context-aware replies, occasionally reposts
-- **Mixed** — Rotates through all modes: `news → creator → engage → news → meme → creator → engage → news`
-
-After every post the bot self-engages (like + repost + follow-up comment) to boost reach in the first 30–60 minutes.
+- **Posts news** — finds fresh articles and tweets about them
+- **Posts your own content** — tips, opinions, and takes based on real articles (nothing invented)
+- **Posts memes & polls** — funny or engaging tech posts
+- **Engages with people** — likes, comments, and reposts relevant posts from others
 
 ---
 
-## Project Structure
+## Setup (Step by Step)
 
-```
-cmd/bot/              — entry point (go run ./cmd/bot/)
-internal/
-  config/             — environment variable loading
-  feeds/              — RSS polling, deduplication, article fetching
-  generation/         — Groq LLM calls, meme formats, creator content, engagement comments
-  images/             — image generation (Pollinations → memegen → Imgflip)
-  twitter/            — headless browser automation (tweet, reply, thread, engage)
-  bot/                — orchestration: modes, rotation, pipelines
-data/
-  ai_security_feeds.json   — 40 AI + cybersecurity feeds (default)
-  dev_feeds.json            — 45 dev + embedded engineering feeds (for creator mode)
-  rss_feeds.json            — 290 feeds across 9 categories
-  tech_feeds.json           — 143 tech + cybersecurity feeds
-  seen_articles.json        — deduplication store (committed, persists across runs)
-  seen_creator.json         — creator article dedup store
-  rotation_state.json       — current rotation slot (persists across runs)
-.github/workflows/
-  post.yml            — main account, every 6h
-  post_tech.yml       — second account, every 6h
-  engage.yml          — engagement only, every 30 minutes
-```
+### Step 1 — Fork this repo
+
+Go to the top of this page and click **Fork**. This creates your own copy.
 
 ---
 
-## Post Modes
+### Step 2 — Get your X session cookies
 
-| Mode | Description |
+Cookies are how the bot logs into your account without triggering security alerts.
+
+1. Open [x.com](https://x.com) in Chrome and make sure you're logged in
+2. Install the **Cookie-Editor** browser extension: [cookie-editor.com](https://cookie-editor.com)
+3. Click the Cookie-Editor icon in your browser toolbar
+4. Click **Export** → **Export as JSON**
+5. Copy everything that appears — that's your cookies
+
+---
+
+### Step 3 — Get free AI keys
+
+The bot uses free AI services to write tweets. Get keys from:
+
+- **Gemini** (primary): [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — sign in with Google, click "Create API key", copy it
+- **OpenRouter** (backup): [openrouter.ai/keys](https://openrouter.ai/keys) — sign up free, create a key, copy it
+
+---
+
+### Step 4 — Add your secrets to GitHub
+
+In your forked repo: **Settings → Secrets and variables → Actions → New repository secret**
+
+Add each of these:
+
+| Name | What to put in it |
 |---|---|
-| `news` | AI-enhanced news tweets + image + link reply + self-engage |
-| `meme` | 13 AI post formats, 30% threads, Pollinations images |
-| `creator` | Owned content from real dev/embedded articles — no fabricated facts |
-| `engage` | Like + comment + occasional repost on relevant posts |
-| `mixed` | 8-slot rotation: 3 news, 2 creator, 1 meme, 2 engage per day |
+| `TWITTER_USERNAME` | Your X username (no @ symbol) |
+| `TWITTER_PASSWORD` | Your X password |
+| `TWITTER_COOKIES` | The cookie JSON you copied in Step 2 |
+| `GEMINI_API_KEY` | Your Gemini key from Step 3 |
+| `OPENROUTER_API_KEY` | Your OpenRouter key from Step 3 |
 
-### Creator Mode
-
-Pulls real articles from 45 dev/embedded feeds (DEV.to, Hashnode, HN, Interrupt/Memfault, EmbeddedRelated, Hackaday, EEVblog, IEEE Spectrum, etc.) and generates tweets grounded in the actual content.
-
-Seven formats: code tips, PCB/embedded tips, dev opinions, TIL moments, tool takes, career insights, honest confessions.
-
-Rules enforced by prompt:
-- Never claims specific years of experience
-- Never invents personal projects or company history
-- Must name specific tools, languages, or components
-- BAD/GOOD examples in every prompt to enforce specificity
-
-### Engagement Mode
-
-Searches X for topics like `PCB design`, `#EmbeddedSystems`, `#Golang`, `firmware development`, `AI cybersecurity`, etc. For each post found:
-1. Likes the post
-2. Generates a context-aware comment (tip if it's a tip, answer if it's a question, reaction if it's a hot take)
-3. ~20% chance of reposting
-
-### Self-engagement
-
-After every post the bot likes, reposts, and replies with a follow-up comment in a different style from the original — this seeds the reply chain and boosts algorithmic velocity.
+**Second account (optional)** — if you want to run the bot on a second X account, also add:
+`TECH_TWITTER_USERNAME`, `TECH_TWITTER_PASSWORD`, `TECH_TWITTER_COOKIES`
 
 ---
 
-## Image Generation
+### Step 5 — Set your posting mode
 
-| Source | Type | Cost |
+In your forked repo: **Settings → Secrets and variables → Actions → Variables tab → New repository variable**
+
+| Name | Value | What it means |
 |---|---|---|
-| Pollinations.ai | AI-generated contextual image (Stable Diffusion) | Free, unlimited |
-| memegen.link | Meme template | Free, unlimited |
-| Imgflip | Meme template (fallback) | Free |
+| `POST_MODE` | `mixed` | Rotates between news, tips, memes, and engagement |
+| `MAX_ARTICLE_AGE_HOURS` | `7` | Only post articles from the last 7 hours |
+| `MAX_TWEETS_PER_RUN` | `5` | Post up to 5 tweets per run |
 
-Groq generates a tailored image prompt from the tweet text before calling Pollinations.
-
----
-
-## Setup
-
-### 1. Fork this repo
-
-Click **Fork** on GitHub.
-
-### 2. Export Twitter cookies
-
-1. Log into [x.com](https://x.com) in Chrome or Firefox
-2. Install [Cookie-Editor](https://cookie-editor.com)
-3. Click the icon → **Export** → **Export as JSON**
-4. Copy the JSON as a single line
-
-### 3. Add GitHub secrets
-
-**Settings → Secrets and variables → Actions → Secrets**
-
-| Secret | Required | Description |
-|---|---|---|
-| `TWITTER_USERNAME` | ✅ | Username without @ |
-| `TWITTER_PASSWORD` | ✅ | Account password |
-| `TWITTER_COOKIES` | ✅ | Single-line cookie JSON |
-| `GROQ_API_KEY` | ✅ | Free at [console.groq.com](https://console.groq.com) |
-| `IMGFLIP_USERNAME` | Optional | Fallback meme images |
-| `IMGFLIP_PASSWORD` | Optional | |
-| `TECH_TWITTER_USERNAME` | Optional | Second account |
-| `TECH_TWITTER_PASSWORD` | Optional | |
-| `TECH_TWITTER_COOKIES` | Optional | |
-
-### 4. Set repository variables
-
-**Settings → Secrets and variables → Actions → Variables**
-
-| Variable | Recommended | Description |
-|---|---|---|
-| `POST_MODE` | `mixed` | `news`, `meme`, `creator`, `engage`, or `mixed` |
-| `CATEGORY` | _(empty)_ | `ai`, `cybersecurity`, or empty for both |
-| `MAX_ARTICLE_AGE_HOURS` | `7` | Match cron interval + 1h buffer |
-| `TWEET_DELAY_SECONDS` | `90` | Gap between tweets |
-| `MAX_TWEETS_PER_RUN` | `5` | Max posts per run (0 = unlimited) |
-
-### 5. Enable Actions write permissions
-
-**Settings → Actions → General → Workflow permissions → Read and write**
-
-Required for the bot to commit state files (`seen_articles.json`, `rotation_state.json`) after each run.
-
-### 6. Enable workflows
-
-**Actions** tab → enable workflows → they run automatically on schedule.
-
-To test: **Actions** → select workflow → **Run workflow**.
+> You can also set `POST_MODE` to `news`, `creator`, `meme`, or `engage` if you only want one type.
 
 ---
 
-## Workflows
+### Step 6 — Allow the bot to save its progress
 
-| Workflow | Schedule | Mode | Account |
-|---|---|---|---|
-| `post.yml` | Every 6h | `POST_MODE` var | `TWITTER_*` |
-| `post_tech.yml` | Every 6h | `POST_MODE` var | `TECH_TWITTER_*` |
-| `engage.yml` | Every 30 min | `engage` (hardcoded) | `TWITTER_*` |
+Go to **Settings → Actions → General**, scroll to **Workflow permissions**, select **Read and write permissions**, and click Save.
 
-All workflows commit state files back to the repo after each run so the rotation slot and seen-article list persist across runs.
+This lets the bot remember which articles it already posted so it doesn't repeat itself.
 
 ---
 
-## Running Locally
+### Step 7 — Turn on the workflows
 
-Requires [Go 1.21+](https://go.dev/dl/) and Google Chrome:
+Go to the **Actions** tab in your repo. If you see a banner saying workflows are disabled, click **Enable**.
 
-```bash
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg -i google-chrome-stable_current_amd64.deb && sudo apt-get install -f -y
-```
+The bot will now run automatically:
+- Every 6 hours to post content
+- Every 30 minutes to engage with other people's posts
 
-```bash
-cp .env.example .env
-# fill in credentials
-go run ./cmd/bot/
-```
-
-Single run:
-```bash
-RUN_ONCE=true go run ./cmd/bot/
-```
-
-Run only engagement:
-```bash
-POST_MODE=engage RUN_ONCE=true go run ./cmd/bot/
-```
+**To test it right now:** Actions → pick a workflow → click **Run workflow**
 
 ---
 
-## Configuration Reference
+## Updating Your Cookies
 
-| Variable | Default | Description |
-|---|---|---|
-| `TWITTER_USERNAME` | — | Twitter/X username |
-| `TWITTER_PASSWORD` | — | Twitter/X password |
-| `TWITTER_COOKIES` | — | Session cookies JSON |
-| `FEEDS_FILE` | `data/ai_security_feeds.json` | RSS feeds file |
-| `CATEGORY` | _(all)_ | `ai` or `cybersecurity` |
-| `POST_MODE` | `news` | `news`, `meme`, `creator`, `engage`, `mixed` |
-| `POLL_INTERVAL_MINUTES` | `5` | Loop interval (continuous mode only) |
-| `MAX_ARTICLE_AGE_HOURS` | `7` | Ignore articles older than this |
-| `TWEET_DELAY_SECONDS` | `90` | Gap between tweets |
-| `MAX_TWEETS_PER_RUN` | `5` | 0 = unlimited |
-| `GROQ_API_KEY` | — | Required for all AI features |
-| `IMGFLIP_USERNAME` | — | Optional |
-| `IMGFLIP_PASSWORD` | — | Optional |
-| `RUN_ONCE` | `false` | Exit after one poll (used in CI) |
+Cookies expire after 30–90 days. When the bot stops working, just:
+
+1. Go to x.com, log in
+2. Export cookies again with Cookie-Editor
+3. Go to your repo → **Settings → Secrets → TWITTER_COOKIES** → click Update → paste new cookies
 
 ---
 
 ## Troubleshooting
 
-**"session invalid or expired"** — Cookies expired. Re-export from x.com and update the secret. Cookies last 30–90 days.
+**Bot says "session invalid"** — Your cookies expired. Follow the "Updating Your Cookies" steps above.
 
-**Bot hangs at "Launching browser..."** — Google Chrome stable must be installed. Snap Chromium doesn't work for headless automation.
+**Bot isn't posting anything** — Check the Actions tab, click on a recent run, and look at the logs. The most common cause is missing secrets or cookies that need refreshing.
 
-**"tweet composer not found"** — X updated their UI selectors. Check debug screenshots in Actions → run summary → Artifacts.
+**Posts keep repeating** — Make sure Step 6 (workflow permissions) is done. Without it the bot can't save which articles it already used.
 
-**Same articles every run** — The state files (`seen_articles.json`, `rotation_state.json`) must be committed back after each run. Check that workflow permissions are set to read/write.
-
-**Thread only posts the first tweet** — `TWITTER_USERNAME` must match your X handle exactly — it's used to identify the posted tweet URL in the timeline.
+**I only want news posts / only want engagement** — Change the `POST_MODE` variable (Step 5) to `news` or `engage`.
 
 ---
 
