@@ -70,8 +70,22 @@ Add each of these:
 | `GEMINI_API_KEY` | Your Gemini key from Step 3 |
 | `OPENROUTER_API_KEY` | Your OpenRouter key from Step 3 |
 
-**Second account (optional)** — if you want to run the bot on a second X account, also add:
-`TECH_TWITTER_USERNAME`, `TECH_TWITTER_PASSWORD`, `TECH_TWITTER_COOKIES`
+---
+
+### Running on multiple accounts
+
+Each account gets its own workflow file. Duplicate any of the `post_*.yml` files under `.github/workflows/` and give it a name that matches the account, e.g. `post_mySecondAccount.yml`.
+
+In that file, set the `env:` block to use its own set of secrets:
+
+```yaml
+env:
+  TWITTER_USERNAME: ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_USERNAME }}
+  TWITTER_PASSWORD: ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_PASSWORD }}
+  TWITTER_COOKIES:  ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_COOKIES }}
+```
+
+Then add those three secrets in GitHub (same place as Step 4) with the matching names. Each workflow runs independently on its own schedule — no other changes needed.
 
 ---
 
