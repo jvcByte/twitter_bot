@@ -1,4 +1,4 @@
-name: Post Tweet
+name: Post Tweet (TheOnlyTechDude)
 
 on:
   schedule:
@@ -34,9 +34,9 @@ jobs:
 
       - name: Run bot
         env:
-          TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
-          TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
-          TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
+          TWITTER_USERNAME: ${{ secrets.THE_ONLY_TECH_DUDE_TWITTER_USERNAME }}
+          TWITTER_PASSWORD: ${{ secrets.THE_ONLY_TECH_DUDE_TWITTER_PASSWORD }}
+          TWITTER_COOKIES: ${{ secrets.THE_ONLY_TECH_DUDE_TWITTER_COOKIES }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -56,7 +56,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-${{ github.run_id }}
+          name: screenshots-TheOnlyTechDude-${{ github.run_id }}
           path: "*.png"
           if-no-files-found: ignore
 

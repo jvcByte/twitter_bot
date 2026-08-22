@@ -1,4 +1,4 @@
-name: Post Tech Tweet
+name: Post Tweet (simpleCheena)
 
 on:
   schedule:
@@ -34,9 +34,9 @@ jobs:
 
       - name: Run bot
         env:
-          TWITTER_USERNAME: ${{ secrets.TECH_TWITTER_USERNAME }}
-          TWITTER_PASSWORD: ${{ secrets.TECH_TWITTER_PASSWORD }}
-          TWITTER_COOKIES: ${{ secrets.TECH_TWITTER_COOKIES }}
+          TWITTER_USERNAME: ${{ secrets.SIMPLE_CHEENA_TWITTER_USERNAME }}
+          TWITTER_PASSWORD: ${{ secrets.SIMPLE_CHEENA_TWITTER_PASSWORD }}
+          TWITTER_COOKIES: ${{ secrets.SIMPLE_CHEENA_TWITTER_COOKIES }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -56,7 +56,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: screenshots-tech-${{ github.run_id }}
+          name: screenshots-simpleCheena-${{ github.run_id }}
           path: "*.png"
           if-no-files-found: ignore
 
