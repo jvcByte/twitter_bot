@@ -301,12 +301,15 @@ func postArticle(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 	fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
 	fmt.Printf("  tweet: %s\n", headline)
 
-	imgPath, _ := feeds.DownloadImage(a.ImageURL)
-	if imgPath == "" && !cfg.DisableImages {
-		var err error
-		imgPath, err = images.Pollinations(cfg.GroqAPIKey, headline)
-		if err != nil {
-			log.Printf("  image failed: %v — text only", err)
+	var imgPath string
+	if !cfg.DisableImages {
+		imgPath, _ = feeds.DownloadImage(a.ImageURL)
+		if imgPath == "" {
+			var err error
+			imgPath, err = images.Pollinations(cfg.GroqAPIKey, headline)
+			if err != nil {
+				log.Printf("  image failed: %v — text only", err)
+			}
 		}
 	}
 

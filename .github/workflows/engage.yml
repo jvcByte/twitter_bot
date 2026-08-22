@@ -36,9 +36,11 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           POST_MODE: engage
-          RUN_ONCE: "false"
+          RUN_ONCE: "true"
         run: go run ./cmd/bot/
 
       - name: Upload screenshots

@@ -2,7 +2,7 @@ name: Post Tweet
 
 on:
   schedule:
-    - cron: '0 */6 * * *'  # every 6 hours (4x/day)
+    - cron: "0 */6 * * *" # every 6 hours (4x/day)
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          go-version: "1.21"
           cache: true
 
       - name: Install Google Chrome
@@ -37,6 +37,8 @@ jobs:
           TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
           TWITTER_PASSWORD: ${{ secrets.TWITTER_PASSWORD }}
           TWITTER_COOKIES: ${{ secrets.TWITTER_COOKIES }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           IMGFLIP_USERNAME: ${{ secrets.IMGFLIP_USERNAME }}
           IMGFLIP_PASSWORD: ${{ secrets.IMGFLIP_PASSWORD }}
@@ -46,6 +48,7 @@ jobs:
           MAX_ARTICLE_AGE_HOURS: ${{ vars.MAX_ARTICLE_AGE_HOURS }}
           TWEET_DELAY_SECONDS: ${{ vars.TWEET_DELAY_SECONDS }}
           MAX_TWEETS_PER_RUN: ${{ vars.MAX_TWEETS_PER_RUN }}
+          DISABLE_IMAGES: ${{ vars.DISABLE_IMAGES || 'true' }}
           RUN_ONCE: "true"
         run: go run ./cmd/bot/
 
