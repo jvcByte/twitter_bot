@@ -23,6 +23,11 @@ type chatRequest struct {
 	Messages    []chatMessage `json:"messages"`
 	MaxTokens   int           `json:"max_tokens"`
 	Temperature float64       `json:"temperature"`
+	Reasoning   *reasoningCfg `json:"reasoning,omitempty"`
+}
+
+type reasoningCfg struct {
+	Enabled bool `json:"enabled"`
 }
 
 type chatResponse struct {
@@ -70,12 +75,34 @@ var providers = []provider{
 // activeProviders is set by ProbeProviders; nil means use full list.
 var activeProviders []provider
 
+var reasoningLeakPatterns = []string{
+	"the user wants", "the user is asking", "i need to",
+	"let me ", "i should ", "i'll write", "the tweet shows",
+	"as an ai", "my task is",
+}
+
+func looksLikeReasoningLeak(s string) bool {
+	lower := strings.ToLower(s)
+	// Reasoning leaks are almost always at the very start of the response.
+	head := lower
+	if len(head) > 120 {
+		head = head[:120]
+	}
+	for _, p := range reasoningLeakPatterns {
+		if strings.Contains(head, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // ProbeProviders tests each provider and keeps only the working ones.
 func ProbeProviders() {
 	req := chatRequest{
 		Messages:    []chatMessage{{Role: "user", Content: "Say hello in one sentence."}},
 		MaxTokens:   100,
 		Temperature: 0,
+		Reasoning:   &reasoningCfg{Enabled: false},
 	}
 
 	var working []provider
@@ -122,7 +149,11 @@ const defaultSystem = "You are a sharp, witty tech personality on X (Twitter) sp
 	"No markdown — no **bold**, no _italic_, no bullet points, no backticks. " +
 	"No quotes around the output. Just raw tweet text. " +
 	"Add 1-2 hashtags (e.g. #AI #CyberSecurity #DevLife). " +
-	"Only tag accounts from this list when the post is directly about them: " + knownHandles
+	"Only tag accounts from this list when the post is directly about them: " + knownHandles +
+	"Output ONLY the final tweet text and nothing else. " +
+	"Do not describe the task, do not explain what you're about to do, " +
+	"do not include phrases like 'the user wants' or 'here's a tweet'. " +
+	"Your entire response must be the tweet itself, nothing before or after it. "
 
 // Generate sends a prompt with the default system persona and returns the response.
 func Generate(prompt string, maxTokens int) (string, error) {
@@ -138,6 +169,7 @@ func GenerateWithSystem(system, prompt string, maxTokens int) (string, error) {
 		},
 		MaxTokens:   maxTokens,
 		Temperature: 0.85,
+		Reasoning:   &reasoningCfg{Enabled: false},
 	}
 
 	pool := activeProviders
@@ -171,6 +203,11 @@ func GenerateWithSystem(system, prompt string, maxTokens int) (string, error) {
 }
 
 func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
+	// Gemini's OpenAI-compat endpoint does not support the "reasoning" field.
+	if strings.Contains(endpoint, "generativelanguage.googleapis.com") {
+		req.Reasoning = nil
+	}
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return "", fmt.Errorf("marshal: %w", err)
@@ -235,6 +272,9 @@ func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
 	text = StripMarkdown(trimQuotes(text))
 	if len([]rune(text)) < 5 {
 		return "", fmt.Errorf("response too short: %q", text)
+	}
+	if looksLikeReasoningLeak(text) {
+		return "", fmt.Errorf("response looks like leaked reasoning, not a tweet: %q", text)
 	}
 	return text, nil
 }
