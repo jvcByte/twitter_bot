@@ -486,29 +486,18 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 		Set("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36").
 		Set("window-size", "1280,800")
 
+	// Prefer a system-installed browser — avoids issues with rod's bundled
+	// Chromium crashing on certain Linux environments.
 	for _, p := range []string{
-		"/usr/bin/google-chrome-stable", "/usr/bin/google-chrome",
-		"/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium",
+		"/usr/bin/google-chrome-stable",
+		"/usr/bin/google-chrome",
+		"/usr/bin/chromium",
+		"/usr/bin/chromium-browser",
+		"/snap/bin/chromium",
 	} {
 		if _, err := os.Stat(p); err == nil {
 			l = l.Bin(p)
 			break
-		}
-	}
-	if _, exists := launcher.LookPath(); exists {
-		// already set or will be found automatically
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		cacheDir := home + "/.cache/rod/browser"
-		if entries, err := os.ReadDir(cacheDir); err == nil {
-			for _, e := range entries {
-				for _, bin := range []string{"/chrome-linux/chrome", "/chrome"} {
-					p := cacheDir + "/" + e.Name() + bin
-					if _, err := os.Stat(p); err == nil {
-						l = l.Bin(p)
-					}
-				}
-			}
 		}
 	}
 
