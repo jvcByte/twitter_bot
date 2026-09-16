@@ -372,12 +372,10 @@ func (c *Client) tweetNew(message, imagePath string) (string, error) {
 	defer browser.MustClose()
 	fmt.Println("Session valid, composing tweet...")
 
-	newTweetBtn, err := page.Timeout(sessionTimeout).Element(`[data-testid="SideNav_NewTweet_Button"]`)
-	if err != nil {
-		page.MustScreenshot("debug_compose.png")
-		return "", fmt.Errorf("new tweet button not found: %w", err)
-	}
-	newTweetBtn.MustEval(`() => this.click()`)
+	// Navigate directly to the compose URL — more reliable than waiting for
+	// the sidebar button to hydrate, especially in CI/headless environments.
+	page.MustNavigate("https://x.com/compose/post")
+	page.MustWaitLoad()
 	time.Sleep(3 * time.Second)
 
 	if imagePath != "" {
