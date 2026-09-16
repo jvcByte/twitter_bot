@@ -229,7 +229,7 @@ func RunEngagement(client *twitter.Client, cfg *config.Config) bool {
 		return false
 	}
 	fmt.Printf("  ✓ engaged with %d posts\n", n)
-	return n > 0
+	return true // 0 engagements is still a valid run (no posts found); advance slot
 }
 
 // RunMixed delegates to the rotation system.

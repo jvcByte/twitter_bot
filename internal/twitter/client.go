@@ -240,17 +240,33 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 	}
 	defer browser.MustClose()
 
-	searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query&f=live"
-	page.MustNavigate(searchURL)
-	page.MustWaitLoad()
-	time.Sleep(4 * time.Second)
+	// Try up to 3 different topics if search returns no results
+	var loaded bool
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			idx := (int(time.Now().UnixNano()) + attempt*37) % len(topics)
+			topic = topics[idx]
+			fmt.Printf("  retrying with topic %q\n", topic)
+		}
+		searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query&f=live"
+		page.MustNavigate(searchURL)
+		page.MustWaitLoad()
+		time.Sleep(5 * time.Second)
 
-	// Wait for at least one tweet article to appear (up to 15s)
-	if _, err := page.Timeout(15 * time.Second).Element(`article[data-testid="tweet"]`); err != nil {
-		log.Printf("  ⚠ no tweets loaded for topic %q — skipping", topic)
+		if _, err := page.Timeout(15 * time.Second).Element(`article[data-testid="tweet"]`); err == nil {
+			loaded = true
+			break
+		}
+		// Log current URL to help diagnose redirects
+		if info, err := page.Info(); err == nil {
+			log.Printf("  ⚠ no tweets for topic %q (url: %s)", topic, info.URL)
+		} else {
+			log.Printf("  ⚠ no tweets loaded for topic %q", topic)
+		}
+	}
+	if !loaded {
 		return 0, nil
 	}
-	time.Sleep(1 * time.Second)
 
 	// Phase 1: collect tweet URLs — deduplicated by status ID to prevent double-engaging
 	var tweetURLs []string
