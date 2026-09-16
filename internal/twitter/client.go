@@ -248,13 +248,19 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 			topic = topics[idx]
 			fmt.Printf("  retrying with topic %q\n", topic)
 		}
-		searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query&f=live"
-		page.MustNavigate(searchURL)
-		page.MustWaitLoad()
-		time.Sleep(5 * time.Second)
+		// Try Live tab first, fall back to Top tab if Live returns nothing
+		for _, suffix := range []string{"&f=live", ""} {
+			searchURL := "https://x.com/search?q=" + urlEncode(topic) + "&src=typed_query" + suffix
+			page.MustNavigate(searchURL)
+			page.MustWaitLoad()
+			time.Sleep(6 * time.Second)
 
-		if _, err := page.Timeout(15 * time.Second).Element(`article[data-testid="tweet"]`); err == nil {
-			loaded = true
+			if _, err := page.Timeout(15 * time.Second).Element(`article[data-testid="tweet"]`); err == nil {
+				loaded = true
+				break
+			}
+		}
+		if loaded {
 			break
 		}
 		// Log current URL to help diagnose redirects
@@ -265,6 +271,7 @@ func (c *Client) EngageWithTopic(topics []string, maxPosts int, commentFn func(s
 		}
 	}
 	if !loaded {
+		page.MustScreenshot("debug_search.png")
 		return 0, nil
 	}
 
