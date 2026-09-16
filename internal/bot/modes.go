@@ -97,34 +97,39 @@ func RunNews(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) 
 }
 
 // RunMeme posts a single AI-generated meme post (or thread ~30% of the time).
-func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, headline string) {
+// Returns true if a post was successfully published.
+func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, headline string) bool {
 	if cfg.GroqAPIKey == "" {
 		log.Printf("GROQ_API_KEY not set — skipping meme post")
-		return
+		return false
 	}
 	if rand.Intn(10) < 3 {
 		runThread(client, cfg, headline)
-		return
+		// runThread has no return value; treat as best-effort success
+		return true
 	}
 
 	post, formatName, err := generation.GenerateMemePost(cfg.GroqAPIKey, headline)
 	if err != nil {
 		log.Printf("meme generation failed: %v", err)
-		return
+		return false
 	}
 	fmt.Printf("→ [AI %s] %s\n", formatName, post)
 
 	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsTextOnly(formatName) && !cfg.DisableImages)
 	if tweetURL != "" {
 		selfEngage(client, cfg, tweetURL, post)
+		return true
 	}
+	return false
 }
 
 // RunCreator posts owned content grounded in real dev/embedded articles.
-func RunCreator(client *twitter.Client, cfg *config.Config) {
+// Returns true if a post was successfully published.
+func RunCreator(client *twitter.Client, cfg *config.Config) bool {
 	if cfg.GroqAPIKey == "" {
 		log.Printf("GROQ_API_KEY not set — skipping creator post")
-		return
+		return false
 	}
 	if rand.Intn(10) < 3 {
 		tweets, err := generation.GenerateCreatorThread(cfg.GroqAPIKey, "")
@@ -135,25 +140,27 @@ func RunCreator(client *twitter.Client, cfg *config.Config) {
 			threadURL, err := client.Thread(tweets, "")
 			if err != nil {
 				log.Printf("thread post failed: %v", err)
-				return
+				return false
 			}
 			fmt.Println("  ✓ thread posted")
 			selfEngage(client, cfg, threadURL, tweets[0])
-			return
+			return true
 		}
 	}
 
 	post, formatName, err := generation.GenerateCreatorPost(cfg.GroqAPIKey)
 	if err != nil {
 		log.Printf("creator post failed: %v", err)
-		return
+		return false
 	}
 	fmt.Printf("→ [creator %s] %s\n", formatName, post)
 
 	tweetURL := postWithOptionalImage(client, cfg, post, !generation.IsCreatorTextOnly(formatName) && !cfg.DisableImages)
 	if tweetURL != "" {
 		selfEngage(client, cfg, tweetURL, post)
+		return true
 	}
+	return false
 }
 
 // EngagementTopics are the search queries used to find posts to engage with.
@@ -193,7 +200,8 @@ var EngagementTopics = []string{
 }
 
 // RunEngagement finds relevant posts and likes, comments, occasionally reposts.
-func RunEngagement(client *twitter.Client, cfg *config.Config) {
+// Returns true if at least one post was engaged with.
+func RunEngagement(client *twitter.Client, cfg *config.Config) bool {
 	fmt.Println("→ [engage] searching for relevant posts...")
 
 	commentFn := func(tweetText string) string {
@@ -218,9 +226,10 @@ func RunEngagement(client *twitter.Client, cfg *config.Config) {
 	n, err := client.EngageWithTopic(EngagementTopics, 5, commentFn)
 	if err != nil {
 		log.Printf("engagement failed: %v", err)
-		return
+		return false
 	}
 	fmt.Printf("  ✓ engaged with %d posts\n", n)
+	return n > 0
 }
 
 // RunMixed delegates to the rotation system.
@@ -266,32 +275,36 @@ func runRotation(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 	contentType := rotationSlots[slot]
 	fmt.Printf("  rotation slot %d/%d → %s\n", slot+1, len(rotationSlots), contentType)
 
+	var ok bool
 	switch contentType {
 	case "news":
-		runNewsOne(client, seen, cfg)
+		ok = runNewsOne(client, seen, cfg)
 	case "creator":
-		RunCreator(client, cfg)
+		ok = RunCreator(client, cfg)
 	case "meme":
-		RunMeme(client, seen, cfg, "")
+		ok = RunMeme(client, seen, cfg, "")
 	case "engage":
-		RunEngagement(client, cfg)
+		ok = RunEngagement(client, cfg)
 	}
 
-	// Advance slot after execution — not before, so a crash doesn't skip a slot
-	saveSlot((slot + 1) % len(rotationSlots))
+	if ok {
+		saveSlot((slot + 1) % len(rotationSlots))
+	} else {
+		fmt.Printf("  slot %d/%d failed — will retry next run\n", slot+1, len(rotationSlots))
+	}
 }
 
-func runNewsOne(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) {
+func runNewsOne(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) bool {
 	articles, err := feeds.Poll(seen, cfg.MaxArticleAge, cfg.FeedsFile, cfg.Category)
 	if err != nil {
 		log.Printf("poll error: %v", err)
-		return
+		return false
 	}
 	if len(articles) == 0 {
-		fmt.Println("  no new articles — skipping news slot")
-		return
+		fmt.Println("  no new articles — advancing slot")
+		return true // nothing to retry; advance so we don't get stuck
 	}
-	postArticle(client, seen, cfg, articles[0])
+	return postArticle(client, seen, cfg, articles[0]) != ""
 }
 
 // ── shared helpers ────────────────────────────────────────────────────────────
