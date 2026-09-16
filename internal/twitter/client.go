@@ -522,11 +522,17 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 	} else {
 		page.MustNavigate("https://x.com/home")
 		page.MustWaitLoad()
-		time.Sleep(4 * time.Second)
-		page.MustScreenshot("debug_home.png")
+		time.Sleep(5 * time.Second)
 
-		// If cookies are stale the home button won't be there — fall back to login
-		if _, err := page.Timeout(10 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`); err != nil {
+		// Cookies are valid if any logged-in landmark is present.
+		// Use a generous timeout — X's home feed hydrates slowly headless.
+		_, newTweetErr := page.Timeout(20 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+		_, homeTabErr := page.Timeout(3 * time.Second).Element(`[data-testid="AppTabBar_Home_Link"]`)
+		pageInfo, _ := page.Info()
+		onHome := pageInfo != nil && strings.Contains(pageInfo.URL, "x.com/home")
+
+		if newTweetErr != nil && homeTabErr != nil && !onHome {
+			page.MustScreenshot("debug_home.png")
 			fmt.Println("  session stale — logging in with username/password")
 			if loginErr := c.login(page); loginErr != nil {
 				browser.MustClose()
@@ -563,13 +569,17 @@ func (c *Client) login(page *rod.Page) error {
 		`input#jf-input-username_or_email`,
 		`input[autocomplete="username"]`,
 		`input[name="text"]`,
+		`input[type="text"]`,
 	)
 	if err != nil {
 		// No username input visible — look for a Sign in / Log in button
 		signInBtn, btnErr := findFirstElement(page, 8*time.Second,
 			`a[href="/login"]`,
+			`a[href="/i/flow/login"]`,
 			`[data-testid="loginButton"]`,
+			`[data-testid="signupButton"]`,
 			`a[href*="login"]`,
+			`[href*="flow/login"]`,
 		)
 		if btnErr != nil {
 			page.MustScreenshot("debug_login.png")
@@ -603,9 +613,8 @@ func (c *Client) login(page *rod.Page) error {
 	// Click Next / Continue button
 	nextBtn, err := findFirstElement(page, 8*time.Second,
 		`[data-testid="LoginForm_Login_Button"]`,
-		`div[role="button"]:has-text("Next")`,
-		`p:has-text("Continue")`,
-		`span:has-text("Next")`,
+		`[data-testid="ocfLoginNextButton"]`,
+		`[data-testid="LoginForm_Login_Button"]`,
 		`button[type="submit"]`,
 	)
 	if err != nil {
@@ -660,9 +669,7 @@ func (c *Client) login(page *rod.Page) error {
 	// Click Log in / Continue
 	loginBtn, err := findFirstElement(page, 8*time.Second,
 		`[data-testid="LoginForm_Login_Button"]`,
-		`div[role="button"]:has-text("Log in")`,
-		`p:has-text("Continue")`,
-		`span:has-text("Log in")`,
+		`[data-testid="ocfLoginNextButton"]`,
 		`button[type="submit"]`,
 	)
 	if err != nil {
