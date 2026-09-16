@@ -67,8 +67,8 @@ var providers = []provider{
 		name:     "Gemini",
 		envKey:   "GEMINI_API_KEY",
 		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "gemini-2.5-flash-lite",
-		fallback: "gemini-2.5-flash",
+		model:    "gemini-3.6-flash",
+		fallback: "gemini-2.5-flash-lite",
 	},
 }
 
