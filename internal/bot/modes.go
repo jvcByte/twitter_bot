@@ -65,7 +65,7 @@ func poll(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) {
 	case "mixed":
 		RunMixed(client, seen, cfg)
 	case "creator":
-		RunCreator(client, cfg)
+		RunCreator(client, cfg, seen)
 	case "engage":
 		RunEngagement(client, cfg)
 	default:
@@ -100,8 +100,8 @@ func RunNews(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) 
 // Returns true if a post was successfully published.
 func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, headline string) bool {
 	if cfg.GroqAPIKey == "" {
-		log.Printf("GROQ_API_KEY not set — skipping meme post")
-		return false
+		log.Printf("GROQ_API_KEY not set — falling back to news post")
+		return runNewsOne(client, seen, cfg)
 	}
 	if rand.Intn(10) < 3 {
 		runThread(client, cfg, headline)
@@ -111,8 +111,8 @@ func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, 
 
 	post, formatName, err := generation.GenerateMemePost(cfg.GroqAPIKey, headline)
 	if err != nil {
-		log.Printf("meme generation failed: %v", err)
-		return false
+		log.Printf("meme generation failed: %v — falling back to news post", err)
+		return runNewsOne(client, seen, cfg)
 	}
 	fmt.Printf("→ [AI %s] %s\n", formatName, post)
 
@@ -126,10 +126,11 @@ func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, 
 
 // RunCreator posts owned content grounded in real dev/embedded articles.
 // Returns true if a post was successfully published.
-func RunCreator(client *twitter.Client, cfg *config.Config) bool {
+// Falls back to a news post if all LLM providers are unavailable.
+func RunCreator(client *twitter.Client, cfg *config.Config, seen *feeds.SeenStore) bool {
 	if cfg.GroqAPIKey == "" {
-		log.Printf("GROQ_API_KEY not set — skipping creator post")
-		return false
+		log.Printf("GROQ_API_KEY not set — falling back to news post")
+		return runNewsOne(client, seen, cfg)
 	}
 	if rand.Intn(10) < 3 {
 		tweets, err := generation.GenerateCreatorThread(cfg.GroqAPIKey, "")
@@ -150,8 +151,8 @@ func RunCreator(client *twitter.Client, cfg *config.Config) bool {
 
 	post, formatName, err := generation.GenerateCreatorPost(cfg.GroqAPIKey)
 	if err != nil {
-		log.Printf("creator post failed: %v", err)
-		return false
+		log.Printf("creator post failed: %v — falling back to news post", err)
+		return runNewsOne(client, seen, cfg)
 	}
 	fmt.Printf("→ [creator %s] %s\n", formatName, post)
 
@@ -280,7 +281,7 @@ func runRotation(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 	case "news":
 		ok = runNewsOne(client, seen, cfg)
 	case "creator":
-		ok = RunCreator(client, cfg)
+		ok = RunCreator(client, cfg, seen)
 	case "meme":
 		ok = RunMeme(client, seen, cfg, "")
 	case "engage":
