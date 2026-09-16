@@ -541,10 +541,19 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 		}
 	}
 
-	// Final session check
-	if _, err := page.Timeout(15 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`); err != nil {
+	// Final session check — accept any logged-in landmark
+	_, finalNewTweetErr := page.Timeout(15 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+	_, finalHomeTabErr := page.Timeout(3 * time.Second).Element(`[data-testid="AppTabBar_Home_Link"]`)
+	finalInfo, _ := page.Info()
+	finalOnHome := finalInfo != nil && strings.Contains(finalInfo.URL, "x.com/home")
+	if finalNewTweetErr != nil && finalHomeTabErr != nil && !finalOnHome {
+		var currentURL string
+		if finalInfo != nil {
+			currentURL = finalInfo.URL
+		}
+		page.MustScreenshot("debug_final.png")
 		browser.MustClose()
-		return nil, nil, fmt.Errorf("session invalid after login attempt: %w", err)
+		return nil, nil, fmt.Errorf("session invalid after login attempt (current URL: %s) — refresh TWITTER_COOKIES secret", currentURL)
 	}
 	return browser, page, nil
 }
