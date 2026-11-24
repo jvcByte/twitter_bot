@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 )
@@ -21,7 +20,6 @@ const sessionTimeout = 30 * time.Second
 // Client is a stateless Twitter automation client backed by a headless browser.
 type Client struct {
 	username string
-	password string
 }
 
 // Cookie represents a browser cookie exported from Cookie-Editor.
@@ -36,8 +34,8 @@ type Cookie struct {
 }
 
 // NewClient creates a new Twitter client for the given account.
-func NewClient(username, password string) *Client {
-	return &Client{username: username, password: password}
+func NewClient(username string) *Client {
+	return &Client{username: username}
 }
 
 // Tweet posts a text-only tweet and returns its URL.
@@ -533,33 +531,27 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 
 	fmt.Println("Loading session...")
 
-	// Try cookies first; fall back to username/password login
+	// Cookies are the only supported login method.
 	if err := loadCookies(page); err != nil {
-		fmt.Printf("  cookies unavailable (%v) — logging in with username/password\n", err)
-		if loginErr := c.login(page); loginErr != nil {
-			browser.MustClose()
-			return nil, nil, fmt.Errorf("login failed: %w", loginErr)
-		}
-	} else {
-		page.MustNavigate("https://x.com/home")
-		page.MustWaitLoad()
-		time.Sleep(5 * time.Second)
+		browser.MustClose()
+		return nil, nil, fmt.Errorf("no session cookies: %w", err)
+	}
 
-		// Cookies are valid if any logged-in landmark is present.
-		// Use a generous timeout — X's home feed hydrates slowly headless.
-		_, newTweetErr := page.Timeout(20 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
-		_, homeTabErr := page.Timeout(3 * time.Second).Element(`[data-testid="AppTabBar_Home_Link"]`)
-		pageInfo, _ := page.Info()
-		onHome := pageInfo != nil && strings.Contains(pageInfo.URL, "x.com/home")
+	page.MustNavigate("https://x.com/home")
+	page.MustWaitLoad()
+	time.Sleep(5 * time.Second)
 
-		if newTweetErr != nil && homeTabErr != nil && !onHome {
-			page.MustScreenshot("debug_home.png")
-			fmt.Println("  session stale — logging in with username/password")
-			if loginErr := c.login(page); loginErr != nil {
-				browser.MustClose()
-				return nil, nil, fmt.Errorf("login failed: %w", loginErr)
-			}
-		}
+	// Cookies are valid if any logged-in landmark is present.
+	// Use a generous timeout — X's home feed hydrates slowly headless.
+	_, newTweetErr := page.Timeout(20 * time.Second).Element(`[data-testid="SideNav_NewTweet_Button"]`)
+	_, homeTabErr := page.Timeout(3 * time.Second).Element(`[data-testid="AppTabBar_Home_Link"]`)
+	pageInfo, _ := page.Info()
+	onHome := pageInfo != nil && strings.Contains(pageInfo.URL, "x.com/home")
+
+	if newTweetErr != nil && homeTabErr != nil && !onHome {
+		page.MustScreenshot("debug_home.png")
+		browser.MustClose()
+		return nil, nil, fmt.Errorf("session stale — cookies are invalid or expired; refresh TWITTER_COOKIES")
 	}
 
 	// Final session check — accept any logged-in landmark
@@ -577,171 +569,6 @@ func (c *Client) launchSession() (*rod.Browser, *rod.Page, error) {
 		return nil, nil, fmt.Errorf("session invalid after login attempt (current URL: %s) — refresh TWITTER_COOKIES secret", currentURL)
 	}
 	return browser, page, nil
-}
-
-// login performs a full username/password login starting from x.com homepage.
-func (c *Client) login(page *rod.Page) error {
-	if c.username == "" || c.password == "" {
-		return fmt.Errorf("TWITTER_USERNAME and TWITTER_PASSWORD must be set for password login")
-	}
-
-	fmt.Println("  logging in with username/password...")
-
-	// Navigate to homepage — X will show its sign-in flow
-	page.MustNavigate("https://x.com/")
-	page.MustWaitLoad()
-	time.Sleep(4 * time.Second)
-
-	// The landing page has an "Email or username" input directly visible
-	// (the new jf-form flow) OR a Sign in button. Try the input first.
-	usernameInput, err := findFirstElement(page, 10*time.Second,
-		`input[name="username_or_email"]`,
-		`input#jf-input-username_or_email`,
-		`input[autocomplete="username"]`,
-		`input[name="text"]`,
-		`input[type="text"]`,
-	)
-	if err != nil {
-		// No username input visible — look for a Sign in / Log in button
-		signInBtn, btnErr := findFirstElement(page, 8*time.Second,
-			`a[href="/login"]`,
-			`a[href="/i/flow/login"]`,
-			`[data-testid="loginButton"]`,
-			`[data-testid="signupButton"]`,
-			`a[href*="login"]`,
-			`[href*="flow/login"]`,
-		)
-		if btnErr != nil {
-			page.MustScreenshot("debug_login.png")
-			return fmt.Errorf("neither username input nor sign-in button found: %w", err)
-		}
-		signInBtn.MustEval(`() => this.click()`)
-		time.Sleep(3 * time.Second)
-
-		// Now look for username input again
-		usernameInput, err = findFirstElement(page, 15*time.Second,
-			`input[name="username_or_email"]`,
-			`input#jf-input-username_or_email`,
-			`input[autocomplete="username"]`,
-			`input[name="text"]`,
-			`input[type="text"]`,
-		)
-		if err != nil {
-			page.MustScreenshot("debug_login.png")
-			return fmt.Errorf("username field not found: %w", err)
-		}
-	}
-
-	// Type username
-	usernameInput.MustEval(`() => this.focus()`)
-	time.Sleep(400 * time.Millisecond)
-	if err := page.InsertText(c.username); err != nil {
-		return fmt.Errorf("type username: %w", err)
-	}
-	time.Sleep(600 * time.Millisecond)
-
-	// Click Next / Continue button
-	nextBtn, err := findFirstElement(page, 8*time.Second,
-		`[data-testid="LoginForm_Login_Button"]`,
-		`[data-testid="ocfLoginNextButton"]`,
-		`[data-testid="LoginForm_Login_Button"]`,
-		`button[type="submit"]`,
-	)
-	if err != nil {
-		page.Keyboard.Press(input.Enter) //nolint
-	} else {
-		nextBtn.MustEval(`() => this.click()`)
-	}
-	time.Sleep(3 * time.Second)
-
-	// Handle optional email/phone verification prompt
-	if verify, _ := page.Timeout(5 * time.Second).Element(`input[data-testid="ocfEnterTextTextInput"]`); verify != nil {
-		fmt.Println("  ⚠ verification prompt — entering username again")
-		verify.MustEval(`() => this.focus()`)
-		time.Sleep(300 * time.Millisecond)
-		page.InsertText(c.username) //nolint
-		time.Sleep(400 * time.Millisecond)
-		if verifyNext, err := page.Timeout(5 * time.Second).Element(`[data-testid="ocfEnterTextNextButton"]`); err == nil {
-			verifyNext.MustEval(`() => this.click()`)
-			time.Sleep(2 * time.Second)
-		}
-	}
-
-	// Enter password — jf-form hides the actual input behind a visual one;
-	// the real input has name="password"
-	passwordInput, err := findFirstElement(page, 15*time.Second,
-		`input[name="password"]:not([style*="opacity: 0"])`,
-		`input[name="password"]`,
-		`input[type="password"]`,
-		`input[autocomplete="current-password"]`,
-	)
-	if err != nil {
-		page.MustScreenshot("debug_login.png")
-		return fmt.Errorf("password field not found: %w", err)
-	}
-	// Use JS to set value directly in case the field has pointer-events:none
-	page.MustEval(fmt.Sprintf(`() => {
-		const el = document.querySelector('input[name="password"]');
-		if (el) {
-			const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-			nativeInputValueSetter.call(el, %q);
-			el.dispatchEvent(new Event('input', { bubbles: true }));
-			el.dispatchEvent(new Event('change', { bubbles: true }));
-		}
-	}`, c.password))
-	time.Sleep(600 * time.Millisecond)
-
-	// Also try normal focus+type in case JS setter isn't enough
-	passwordInput.MustEval(`() => this.focus()`)
-	page.InsertText(c.password) //nolint
-	time.Sleep(600 * time.Millisecond)
-
-	// Click Log in / Continue
-	loginBtn, err := findFirstElement(page, 8*time.Second,
-		`[data-testid="LoginForm_Login_Button"]`,
-		`[data-testid="ocfLoginNextButton"]`,
-		`button[type="submit"]`,
-	)
-	if err != nil {
-		page.Keyboard.Press(input.Enter) //nolint
-	} else {
-		loginBtn.MustEval(`() => this.click()`)
-	}
-
-	page.MustWaitLoad()
-	time.Sleep(5 * time.Second)
-	page.MustScreenshot("debug_home.png")
-
-	// Verify login succeeded
-	if info, _ := page.Info(); info != nil {
-		url := info.URL
-		if strings.Contains(url, "/login") || strings.Contains(url, "/flow/login") || strings.Contains(url, "i/flow") || strings.Contains(url, "i/jf") {
-			return fmt.Errorf("login failed — still on login page. Use TWITTER_COOKIES instead")
-		}
-	}
-	if body, err := page.Eval(`() => document.body.innerText`); err == nil {
-		text := strings.ToLower(body.Value.String())
-		if strings.Contains(text, "temporarily limited") || strings.Contains(text, "too many attempts") {
-			return fmt.Errorf("X login rate-limited — wait a while or use TWITTER_COOKIES instead")
-		}
-	}
-
-	fmt.Println("  ✓ logged in")
-	return nil
-}
-
-// findFirstElement tries a list of CSS selectors in order and returns the first match.
-func findFirstElement(page *rod.Page, timeout time.Duration, selectors ...string) (*rod.Element, error) {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		for _, sel := range selectors {
-			if el, err := page.Timeout(1 * time.Second).Element(sel); err == nil {
-				return el, nil
-			}
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-	return nil, fmt.Errorf("none of %v found within %v", selectors, timeout)
 }
 
 func loadCookies(page *rod.Page) error {
@@ -791,7 +618,9 @@ func toAbsURL(h string) string {
 	return h
 }
 
-func mustElements(el interface{ Elements(string) (rod.Elements, error) }, sel string) rod.Elements {
+func mustElements(el interface {
+	Elements(string) (rod.Elements, error)
+}, sel string) rod.Elements {
 	els, _ := el.Elements(sel)
 	return els
 }
@@ -810,34 +639,4 @@ func urlEncode(s string) string {
 		}
 	}
 	return b.String()
-}
-
-// replyInSession is available for in-session replies without launching a new browser.
-func (c *Client) replyInSession(page *rod.Page, article *rod.Element, comment string) error {
-	replyBtn, err := article.Element(`[data-testid="reply"]`)
-	if err != nil {
-		return fmt.Errorf("reply button not found")
-	}
-	replyBtn.MustEval(`() => this.click()`)
-	time.Sleep(2 * time.Second)
-
-	replyBox, err := page.Timeout(sessionTimeout).Element(`[data-testid="tweetTextarea_0"]`)
-	if err != nil {
-		return fmt.Errorf("reply composer not found")
-	}
-	replyBox.MustEval(`() => this.focus()`)
-	time.Sleep(300 * time.Millisecond)
-	if err := page.InsertText(comment); err != nil {
-		return fmt.Errorf("type: %w", err)
-	}
-	time.Sleep(800 * time.Millisecond)
-
-	submitBtn, err := page.Timeout(sessionTimeout).Element(`[data-testid="tweetButton"]:not([disabled])`)
-	if err != nil {
-		page.Keyboard.Press(input.Escape) //nolint
-		return fmt.Errorf("submit not found")
-	}
-	submitBtn.MustEval(`() => this.click()`)
-	time.Sleep(3 * time.Second)
-	return nil
 }

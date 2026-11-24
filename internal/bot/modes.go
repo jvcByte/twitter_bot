@@ -22,7 +22,7 @@ const seenArticlesPath = "data/seen_articles.json"
 // Run starts the bot in the configured mode. If RUN_ONCE is set it runs once
 // and exits, otherwise it loops forever on PollInterval.
 func Run(cfg *config.Config) {
-	client := twitter.NewClient(cfg.TwitterUsername, cfg.TwitterPassword)
+	client := twitter.NewClient(cfg.TwitterUsername)
 	seen := feeds.NewSeenStore(seenArticlesPath)
 
 	feedList, err := feeds.LoadFeeds(cfg.FeedsFile)
@@ -99,8 +99,8 @@ func RunNews(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config) 
 // RunMeme posts a single AI-generated meme post (or thread ~30% of the time).
 // Returns true if a post was successfully published.
 func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, headline string) bool {
-	if cfg.GroqAPIKey == "" {
-		log.Printf("GROQ_API_KEY not set — falling back to news post")
+	if !generation.Available() {
+		log.Printf("no LLM API key set — falling back to news post")
 		return runNewsOne(client, seen, cfg)
 	}
 	if rand.Intn(10) < 3 {
@@ -109,7 +109,7 @@ func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, 
 		return true
 	}
 
-	post, formatName, err := generation.GenerateMemePost(cfg.GroqAPIKey, headline)
+	post, formatName, err := generation.GenerateMemePost(headline)
 	if err != nil {
 		log.Printf("meme generation failed: %v — falling back to news post", err)
 		return runNewsOne(client, seen, cfg)
@@ -128,12 +128,12 @@ func RunMeme(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, 
 // Returns true if a post was successfully published.
 // Falls back to a news post if all LLM providers are unavailable.
 func RunCreator(client *twitter.Client, cfg *config.Config, seen *feeds.SeenStore) bool {
-	if cfg.GroqAPIKey == "" {
-		log.Printf("GROQ_API_KEY not set — falling back to news post")
+	if !generation.Available() {
+		log.Printf("no LLM API key set — falling back to news post")
 		return runNewsOne(client, seen, cfg)
 	}
 	if rand.Intn(10) < 3 {
-		tweets, err := generation.GenerateCreatorThread(cfg.GroqAPIKey, "")
+		tweets, err := generation.GenerateCreatorThread("")
 		if err != nil {
 			log.Printf("creator thread failed: %v — falling back to single post", err)
 		} else {
@@ -149,7 +149,7 @@ func RunCreator(client *twitter.Client, cfg *config.Config, seen *feeds.SeenStor
 		}
 	}
 
-	post, formatName, err := generation.GenerateCreatorPost(cfg.GroqAPIKey)
+	post, formatName, err := generation.GenerateCreatorPost()
 	if err != nil {
 		log.Printf("creator post failed: %v — falling back to news post", err)
 		return runNewsOne(client, seen, cfg)
@@ -206,14 +206,14 @@ func RunEngagement(client *twitter.Client, cfg *config.Config) bool {
 	fmt.Println("→ [engage] searching for relevant posts...")
 
 	commentFn := func(tweetText string) string {
-		if cfg.GroqAPIKey == "" {
-			log.Printf("  ⚠ GROQ_API_KEY not set — skipping comments")
+		if !generation.Available() {
+			log.Printf("  ⚠ no LLM API key set — skipping comments")
 			return ""
 		}
 		if len(tweetText) < 20 {
 			return ""
 		}
-		comment, err := generation.GenerateEngagementComment(cfg.GroqAPIKey, tweetText)
+		comment, err := generation.GenerateEngagementComment(tweetText)
 		if err != nil {
 			log.Printf("  ⚠ comment generation failed: %v", err)
 			return ""
@@ -311,7 +311,7 @@ func runNewsOne(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Confi
 // ── shared helpers ────────────────────────────────────────────────────────────
 
 func postArticle(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Config, a feeds.Article) string {
-	headline := generation.FetchAndEngage(a, cfg.GroqAPIKey)
+	headline := generation.FetchAndEngage(a)
 	fmt.Printf("→ [%s] %s\n", a.FeedName, a.Title)
 	fmt.Printf("  tweet: %s\n", headline)
 
@@ -320,7 +320,7 @@ func postArticle(client *twitter.Client, seen *feeds.SeenStore, cfg *config.Conf
 		imgPath, _ = feeds.DownloadImage(a.ImageURL)
 		if imgPath == "" {
 			var err error
-			imgPath, err = images.Pollinations(cfg.GroqAPIKey, headline)
+			imgPath, err = images.Pollinations(headline)
 			if err != nil {
 				log.Printf("  image failed: %v — text only", err)
 			}
@@ -362,7 +362,7 @@ func postWithOptionalImage(client *twitter.Client, cfg *config.Config, post stri
 
 	if withImage {
 		top, bottom := splitText(post)
-		imgPath, imgErr := images.GenerateForPost(cfg.GroqAPIKey, cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
+		imgPath, imgErr := images.GenerateForPost(cfg.ImgflipUsername, cfg.ImgflipPassword, top, bottom)
 		if imgErr != nil {
 			log.Printf("  image failed: %v — text only", imgErr)
 		}
@@ -389,17 +389,17 @@ func selfEngage(client *twitter.Client, cfg *config.Config, tweetURL, postText s
 		return
 	}
 	time.Sleep(2 * time.Second)
-	comment := generation.GenerateSelfComment(cfg.GroqAPIKey, postText)
+	comment := generation.GenerateSelfComment(postText)
 	if err := client.SelfEngage(tweetURL, comment); err != nil {
 		log.Printf("  self-engage failed: %v", err)
 	}
 }
 
 func runThread(client *twitter.Client, cfg *config.Config, topic string) {
-	tweets, err := generation.GenerateThread(cfg.GroqAPIKey, topic)
+	tweets, err := generation.GenerateThread(topic)
 	if err != nil {
 		log.Printf("thread failed: %v — falling back to single post", err)
-		if post, _, err := generation.GenerateMemePost(cfg.GroqAPIKey, topic); err == nil {
+		if post, _, err := generation.GenerateMemePost(topic); err == nil {
 			client.Tweet(post) //nolint
 		}
 		return

@@ -46,9 +46,24 @@ type provider struct {
 	fallback string
 }
 
-// providers is tried in order — instruction-following models only.
-// Gemini 2.5 Flash Lite: 1500 req/day free (vs 20/day for 3.5-flash).
+// providers is tried in order — all have free tiers, no billing required.
+// Groq has the highest free daily quota; OpenRouter's :free models are last
+// because its no-credit tier caps at 50 requests/day.
 var providers = []provider{
+	{
+		name:     "Groq",
+		envKey:   "GROQ_API_KEY",
+		url:      "https://api.groq.com/openai/v1/chat/completions",
+		model:    "openai/gpt-oss-120b",
+		fallback: "openai/gpt-oss-20b",
+	},
+	{
+		name:     "Gemini",
+		envKey:   "GEMINI_API_KEY",
+		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+		model:    "gemini-3.8-flash",
+		fallback: "gemini-3.5-flash-lite",
+	},
 	{
 		name:     "OpenRouter-Gemma",
 		envKey:   "OPENROUTER_API_KEY",
@@ -61,19 +76,23 @@ var providers = []provider{
 		envKey:   "OPENROUTER_API_KEY",
 		url:      "https://openrouter.ai/api/v1/chat/completions",
 		model:    "nvidia/nemotron-3-ultra-550b-a55b:free",
-		fallback: "nvidia/nemotron-3-super-120b-a12b:free",
-	},
-	{
-		name:     "Gemini",
-		envKey:   "GEMINI_API_KEY",
-		url:      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-		model:    "gemini-3.6-flash",
-		fallback: "gemini-2.5-flash-lite",
+		fallback: "nvidia/nemotron-3.5-lightning:free",
 	},
 }
 
 // activeProviders is set by ProbeProviders; nil means use full list.
 var activeProviders []provider
+
+// Available reports whether at least one LLM provider has a key configured.
+// Callers use it to decide whether AI-written content is possible at all.
+func Available() bool {
+	for _, p := range providers {
+		if os.Getenv(p.envKey) != "" {
+			return true
+		}
+	}
+	return false
+}
 
 var reasoningLeakPatterns = []string{
 	"the user wants", "the user is asking", "i need to",
@@ -199,12 +218,12 @@ func GenerateWithSystem(system, prompt string, maxTokens int) (string, error) {
 	if lastErr != nil {
 		return "", lastErr
 	}
-	return "", fmt.Errorf("no LLM providers available — set GEMINI_API_KEY or OPENROUTER_API_KEY")
+	return "", fmt.Errorf("no LLM providers available — set GROQ_API_KEY, GEMINI_API_KEY, or OPENROUTER_API_KEY")
 }
 
 func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
-	// Gemini's OpenAI-compat endpoint does not support the "reasoning" field.
-	if strings.Contains(endpoint, "generativelanguage.googleapis.com") {
+	// "reasoning" is an OpenRouter extension — Groq and Gemini reject it.
+	if !strings.Contains(endpoint, "openrouter.ai") {
 		req.Reasoning = nil
 	}
 
@@ -221,7 +240,7 @@ func callPost(apiKey, endpoint string, req chatRequest) (string, error) {
 		r.Header.Set("Authorization", "Bearer "+apiKey)
 		r.Header.Set("Content-Type", "application/json")
 
-		client := &http.Client{Timeout: 30 * time.Second}
+		client := &http.Client{Timeout: 60 * time.Second}
 		resp, err := client.Do(r)
 		if err != nil {
 			return "", 0, nil, fmt.Errorf("request: %w", err)

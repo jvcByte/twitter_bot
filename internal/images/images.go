@@ -18,14 +18,14 @@ import (
 
 // GenerateForPost generates an image for a post using the full priority chain:
 // Pollinations.ai (AI) → memegen.link → Imgflip
-func GenerateForPost(groqAPIKey, imgflipUser, imgflipPass, text0, text1 string) (string, error) {
+func GenerateForPost(imgflipUser, imgflipPass, text0, text1 string) (string, error) {
 	fullText := text0
 	if text1 != "" {
 		fullText = text0 + " " + text1
 	}
 
 	// 1. Pollinations.ai — free, unlimited, AI-generated
-	path, err := Pollinations(groqAPIKey, fullText)
+	path, err := Pollinations(fullText)
 	if err != nil {
 		fmt.Printf("  pollinations failed: %v — falling back to memegen\n", err)
 	} else if path != "" {
@@ -48,7 +48,7 @@ func GenerateForPost(groqAPIKey, imgflipUser, imgflipPass, text0, text1 string) 
 }
 
 // Pollinations generates an image from a text prompt via Pollinations.ai.
-func Pollinations(_, tweetText string) (string, error) {
+func Pollinations(tweetText string) (string, error) {
 	prompt := buildPrompt(tweetText)
 	fmt.Printf("  🎨 image prompt: %s\n", prompt)
 	return fetchPollinations(prompt)
@@ -174,8 +174,10 @@ func Memegen(text0, text1 string) (string, error) {
 }
 
 type imgflipResp struct {
-	Success bool   `json:"success"`
-	Data    struct{ URL string `json:"url"` } `json:"data"`
+	Success bool `json:"success"`
+	Data    struct {
+		URL string `json:"url"`
+	} `json:"data"`
 	ErrorMessage string `json:"error_message"`
 }
 

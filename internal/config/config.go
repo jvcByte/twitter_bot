@@ -11,7 +11,6 @@ import (
 // Config holds all runtime configuration loaded from environment variables.
 type Config struct {
 	TwitterUsername string
-	TwitterPassword string
 
 	// FeedsFile is the path to the JSON feeds file.
 	FeedsFile string
@@ -34,9 +33,6 @@ type Config struct {
 	// PostMode controls content type: news | meme | mixed | creator | engage
 	PostMode string
 
-	// GroqAPIKey is the Groq API key for LLM calls.
-	GroqAPIKey string
-
 	// ImgflipUsername and ImgflipPassword are optional meme image credentials.
 	ImgflipUsername string
 	ImgflipPassword string
@@ -52,7 +48,6 @@ func Load() (*Config, error) {
 
 	return &Config{
 		TwitterUsername: os.Getenv("TWITTER_USERNAME"),
-		TwitterPassword: os.Getenv("TWITTER_PASSWORD"),
 		FeedsFile:       envString("FEEDS_FILE", "data/rss_feeds.json"),
 		Category:        os.Getenv("CATEGORY"),
 		PollInterval:    envDuration("POLL_INTERVAL_MINUTES", 5) * time.Minute,
@@ -60,7 +55,6 @@ func Load() (*Config, error) {
 		TweetDelay:      envDuration("TWEET_DELAY_SECONDS", 90) * time.Second,
 		MaxTweetsPerRun: int(envDuration("MAX_TWEETS_PER_RUN", 5)),
 		PostMode:        envString("POST_MODE", "news"),
-		GroqAPIKey:      os.Getenv("GROQ_API_KEY"),
 		ImgflipUsername: os.Getenv("IMGFLIP_USERNAME"),
 		ImgflipPassword: os.Getenv("IMGFLIP_PASSWORD"),
 		DisableImages:   os.Getenv("DISABLE_IMAGES") == "true",

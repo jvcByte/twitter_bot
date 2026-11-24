@@ -77,7 +77,7 @@ Use emojis. Max 230 chars. Just the tweet text.`},
 
 // GenerateMemePost generates an AI-powered tweet in a random format.
 // headline is optional — used for reaction/news_reaction formats.
-func GenerateMemePost(_, headline string) (string, string, error) {
+func GenerateMemePost(headline string) (string, string, error) {
 	rand.Seed(time.Now().UnixNano())
 
 	available := memeFormats
@@ -105,7 +105,7 @@ func GenerateMemePost(_, headline string) (string, string, error) {
 }
 
 // GenerateSelfComment generates a short follow-up comment for self-engagement.
-func GenerateSelfComment(_, postText string) string {
+func GenerateSelfComment(postText string) string {
 	if postText == "" {
 		return ""
 	}
@@ -127,7 +127,7 @@ Rules:
 }
 
 // GenerateThread generates a 6-tweet thread on an AI/security topic.
-func GenerateThread(_, topic string) ([]string, error) {
+func GenerateThread(topic string) ([]string, error) {
 	topicLine := "Pick an interesting AI or cybersecurity topic that developers care about."
 	if topic != "" {
 		topicLine = fmt.Sprintf("Topic: %s", topic)
