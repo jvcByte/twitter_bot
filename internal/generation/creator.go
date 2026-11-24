@@ -26,9 +26,9 @@ STRICT RULES — never break these:
 
 // CreatorTextOnly formats that perform better without images.
 var CreatorTextOnly = map[string]bool{
-	"dev_opinion":  true,
-	"career_take":  true,
-	"honest_take":  true,
+	"dev_opinion": true,
+	"career_take": true,
+	"honest_take": true,
 }
 
 type creatorFormat struct {
@@ -99,7 +99,7 @@ Max 240 chars.`},
 
 // GenerateCreatorPost fetches a real article from dev/embedded feeds and generates
 // an owned-content tweet grounded in it.
-func GenerateCreatorPost(apiKey string) (string, string, error) {
+func GenerateCreatorPost() (string, string, error) {
 	seen := feeds.NewSeenStore("data/seen_creator.json")
 	articles, err := feeds.Poll(seen, 48*time.Hour, "data/dev_feeds.json", "")
 	if err != nil || len(articles) == 0 {
@@ -133,7 +133,7 @@ func GenerateCreatorPost(apiKey string) (string, string, error) {
 }
 
 // GenerateCreatorThread generates a 6-tweet technical thread from a real dev article.
-func GenerateCreatorThread(apiKey, topic string) ([]string, error) {
+func GenerateCreatorThread(topic string) ([]string, error) {
 	seen := feeds.NewSeenStore("data/seen_creator.json")
 
 	var a feeds.Article
@@ -195,7 +195,7 @@ Rules:
 }
 
 // GenerateEngagementComment generates a context-aware reply to someone else's tweet.
-func GenerateEngagementComment(apiKey, tweetText string) (string, error) {
+func GenerateEngagementComment(tweetText string) (string, error) {
 	prompt := fmt.Sprintf(`Tweet: "%s"
 
 Reply with ONE sentence as a software engineer. Respond only to what is in the tweet above.
@@ -264,10 +264,10 @@ func IsCreatorTextOnly(name string) bool {
 	return CreatorTextOnly[name]
 }
 
-// FetchAndEngage fetches article text and uses Groq to write an engaging tweet.
-// Falls back to FormatHeadline if the API key is empty or the request fails.
-func FetchAndEngage(a feeds.Article, groqAPIKey string) string {
-	if groqAPIKey == "" {
+// FetchAndEngage fetches article text and uses the configured LLM to write an
+// engaging tweet. Falls back to FormatHeadline if no key is set or the request fails.
+func FetchAndEngage(a feeds.Article) string {
+	if !Available() {
 		return feeds.FormatHeadline(a)
 	}
 

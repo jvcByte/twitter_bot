@@ -12,8 +12,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
-	if cfg.TwitterUsername == "" || cfg.TwitterPassword == "" {
-		log.Fatal("TWITTER_USERNAME and TWITTER_PASSWORD must be set")
+	if cfg.TwitterUsername == "" {
+		log.Fatal("TWITTER_USERNAME must be set")
 	}
 	bot.Run(cfg)
 }
