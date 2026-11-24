@@ -25,34 +25,23 @@ Go to the top of this page and click **Fork**. This creates your own copy.
 
 ### Step 2 — Log the bot into your X account
 
-The bot needs a way to post as you. You have two options:
+The bot posts through a saved browser session (cookies) — X blocks automated password logins far more often, and accounts with 2FA cannot use one at all.
 
-**Option A — Username & Password (easiest, works on any device)**
-
-Just add your username and password in Step 4. The bot will log in automatically. Done.
-
-> If X ever blocks the login, switch to Option B.
-
-**Option B — Session cookies (more reliable, requires a laptop/desktop)**
-
-Cookies are a saved login session — they're harder for X to block than a password login.
-
-1. Open [x.com](https://x.com) in Chrome or Firefox on your **laptop or desktop** and make sure you're logged in
+1. Open [x.com](https://x.com) in Chrome or Firefox and make sure you're logged in
 2. Install the **Cookie-Editor** extension: [cookie-editor.com](https://cookie-editor.com)
 3. Click the Cookie-Editor icon in your browser toolbar
 4. Click **Export** → **Export as JSON**
 5. Copy everything — that's your cookies. You'll paste it in Step 4.
 
-> If you only have a phone, use Option A and skip the cookies.
-
 ---
 
 ### Step 3 — Get free AI keys
 
-The bot uses free AI services to write tweets. Get keys from:
+The bot uses an LLM to write posts and comments. All three options have a free tier — no credit card needed. You need at least one.
 
-- **Gemini** (primary): [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — sign in with Google, click "Create API key", copy it
-- **OpenRouter** (backup): [openrouter.ai/keys](https://openrouter.ai/keys) — sign up free, create a key, copy it
+- **Groq** (primary): [console.groq.com/keys](https://console.groq.com/keys) — sign up free, create a key, copy it (~1,000 requests/day)
+- **Gemini** (fallback): [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) — sign in with Google, click "Create API key", copy it
+- **OpenRouter** (fallback): [openrouter.ai/keys](https://openrouter.ai/keys) — sign up free, create a key, copy it
 
 ---
 
@@ -60,15 +49,15 @@ The bot uses free AI services to write tweets. Get keys from:
 
 In your forked repo: **Settings → Secrets and variables → Actions → New repository secret**
 
-Add each of these:
+Each workflow reads the secret names written in its own `env:` block. The workflows shipped in this repo use account-prefixed names (`SIMPLE_CHEENA_*`, `THE_ONLY_TECH_DUDE_*`) — create the secrets with those prefixes, or rename the `env:` entries if you run a single account. The values are the same:
 
 | Name | What to put in it |
 |---|---|
 | `TWITTER_USERNAME` | Your X username (no @ symbol) |
-| `TWITTER_PASSWORD` | Your X password |
-| `TWITTER_COOKIES` | The cookie JSON from Step 2 Option B — skip if using Option A |
-| `GEMINI_API_KEY` | Your Gemini key from Step 3 |
-| `OPENROUTER_API_KEY` | Your OpenRouter key from Step 3 |
+| `TWITTER_COOKIES` | The cookie JSON from Step 2 |
+| `GROQ_API_KEY` | Your Groq key from Step 3 (primary) |
+| `GEMINI_API_KEY` | Your Gemini key from Step 3 (fallback) |
+| `OPENROUTER_API_KEY` | Your OpenRouter key from Step 3 (fallback) |
 
 ---
 
@@ -81,11 +70,10 @@ In that file, set the `env:` block to use its own set of secrets:
 ```yaml
 env:
   TWITTER_USERNAME: ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_USERNAME }}
-  TWITTER_PASSWORD: ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_PASSWORD }}
   TWITTER_COOKIES:  ${{ secrets.MY_SECOND_ACCOUNT_TWITTER_COOKIES }}
 ```
 
-Then add those three secrets in GitHub (same place as Step 4) with the matching names. Each workflow runs independently on its own schedule — no other changes needed.
+Then add those two secrets in GitHub (same place as Step 4) with the matching names. Each workflow runs independently on its own schedule — no other changes needed.
 
 ---
 
@@ -135,7 +123,7 @@ Cookies expire after 30–90 days. When the bot stops working, just:
 
 ## Troubleshooting
 
-**Bot says "session invalid"** — If you're using cookies (Option B), they expired. Follow the "Updating Your Cookies" steps above. If you're using username/password (Option A), X may have temporarily blocked automated logins — wait a few hours and try again, or switch to cookies.
+**Bot says "session invalid"** — Your cookies expired. Follow the "Updating Your Cookies" steps above.
 
 **Bot isn't posting anything** — Check the Actions tab, click on a recent run, and look at the logs. The most common cause is missing secrets or cookies that need refreshing.
 
